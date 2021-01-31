@@ -3790,7 +3790,6 @@ dependencies = [
 [[package]]
 name = "pallet-basecoin"
 version = "2.0.0"
-source = "git+https://github.com/Manta-Network/pallet-basecoin.git?branch=manta-proto#1d3664548fad4f6ea654dd6d0272410b300d1230"
 dependencies = [
  "frame-support",
  "frame-system",
