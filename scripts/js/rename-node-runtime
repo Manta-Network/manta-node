@@ -1,0 +1,77 @@
+#!/usr/bin/env node
+const { program } = require('commander');
+const path = require('path');
+const fs = require('fs');
+
+const replaceContent = (filePath, replacement) => {
+  let data = fs.readFileSync(filePath, 'utf-8');
+  replacement.forEach(({ regex, replacement }) => {
+    data = data.replace(regex, replacement);
+  });
+  fs.writeFileSync(filePath, data);
+};
+
+const main = ({ nodeName, runtimeName, substratePath }) => {
+  console.log(`node name: ${nodeName}`);
+  console.log(`runtime name: ${runtimeName}`);
+  console.log(`Substrate Path: ${substratePath}`);
+
+  replaceContent(`${substratePath}/node/Cargo.toml`, [{
+    regex: /^\s*name = .*$/gm,
+    replacement: `name = '${nodeName}'`
+  }, {
+    regex: /\bnode-template-runtime\b/gm,
+    replacement: 'node-runtime'
+  }, {
+    regex: /^\s*node-runtime = {(\s*package\s*=\s*'[^']*'\s*,)?/m,
+    replacement: `node-runtime = { package = '${runtimeName}',`
+  }, {
+
+  }]);
+
+  replaceContent(`${substratePath}/runtime/Cargo.toml`, [{
+    regex: /^\s*name = .*$/m,
+    replacement: `name = '${runtimeName}'`
+  }]);
+
+  replaceContent(`${substratePath}/runtime/src/lib.rs`, [{
+    regex: /(^\s*spec_name:)\s+create_runtime_str!.*$/m,
+    replacement: `$1 create_runtime_str!("${nodeName}"),`
+  }, {
+    regex: /(^\s*impl_name:)\s+create_runtime_str!.*$/m,
+    replacement: `$1 create_runtime_str!("${nodeName}"),`
+  }]);
+
+  // Go thru all file under node/src. Everything with `node_template_runtime` will be
+  //   replaced with `node_runtime`.
+  const nodeSrcPath = `${substratePath}/node/src`;
+  fs.readdirSync(nodeSrcPath, { withFileTypes: true })
+    .filter(ent => ent.isFile() && ent.name.endsWith('.rs'))
+    .forEach(ent => replaceContent(`${nodeSrcPath}/${ent.name}`, [{
+      regex: /\bnode_template_runtime\b/gm,
+      replacement: 'node_runtime'
+    }]));
+};
+
+// --- Program entry point ---
+
+const defaultPath = path.join(__dirname, '../..');
+
+program.version('1.0.0');
+
+program
+  .requiredOption('-n, --node <node-name>', 'Substrate node name')
+  .option('-r, --runtime <runtime-name>',
+    'Substrate runtime name. If omitted, it will be <node-name>-runtime.')
+  .option('-p, --path <substrate-path>', 'Substrate directory path', defaultPath);
+
+program.parse(process.argv);
+
+const opts = {
+  substratePath: path.resolve(program.path),
+  nodeName: program.node,
+  runtimeName: program.runtime ? program.runtime : `${program.node}-runtime`
+};
+
+// TODO: perform param validation
+main(opts);

@@ -1,0 +1,13 @@
+{
+  "name": "js",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "break": "node --inspect-brk ./rename-node-runtime"
+  },
+  "dependencies": {
+    "commander": "^6.2.1"
+  }
+}
