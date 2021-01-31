@@ -9,8 +9,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use sp_std::prelude::*;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature,
-	transaction_validity::{TransactionValidity, TransactionSource},
+    ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature,
+    transaction_validity::{TransactionValidity, TransactionSource},
 };
 use sp_runtime::traits::{
 	BlakeTwo256, Block as BlockT, Verify, IdentifyAccount, NumberFor, Saturating,
@@ -262,10 +262,17 @@ impl pallet_sudo::Trait for Runtime {
 }
 
 impl pallet_assets::Trait for Runtime {
-        type Event = Event;
-        type Balance = Balance;
-        type AssetId = u32;
+    type Event = Event;
+    type Balance = Balance;
+    type AssetId = u32;
 }
+
+impl pallet_basecoin::Trait for Runtime {
+    type Event = Event;
+    type Balance = Balance;
+    type AssetId = u32;
+}
+
 
 
 /// Configure the template pallet in pallets/template.
@@ -288,8 +295,9 @@ construct_runtime!(
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
-	        // Include the custom logic from the template pallet in the runtime.
-	        Assets: pallet_assets::{Module, Call, Storage, Event<T>},
+	    // Include the custom logic from the template pallet in the runtime.
+	    Assets: pallet_assets::{Module, Call, Storage, Event<T>},
+        Basecoin: pallet_basecoin::{Module, Call, Storage, Event<T>},
 		TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
 	}
 );

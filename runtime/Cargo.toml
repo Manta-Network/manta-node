@@ -36,6 +36,7 @@ frame-system-benchmarking = { default-features = false, optional = true, version
 frame-system-rpc-runtime-api = { default-features = false, version = '2.0.1' }
 pallet-aura = { default-features = false, version = '2.0.1' }
 pallet-assets = { default-features = false, version = '2.0.1' }
+pallet-basecoin = { git = "https://github.com/Manta-Network/pallet-basecoin.git", default-features = false, branch = 'manta-proto' }
 pallet-balances = { default-features = false, version = '2.0.1' }
 pallet-grandpa = { default-features = false, version = '2.0.1' }
 pallet-randomness-collective-flip = { default-features = false, version = '2.0.1' }
@@ -76,6 +77,7 @@ std = [
     'frame-system-rpc-runtime-api/std',
     'pallet-aura/std',
     'pallet-assets/std',
+    'pallet-basecoin/std',
     'pallet-balances/std',
     'pallet-grandpa/std',
     'pallet-randomness-collective-flip/std',
