@@ -1,6 +1,6 @@
 [package]
 name = "pallet-basecoin"
-version = "2.0.0"
+version = "2.0.1"
 authors = ["Manta Network <shumo@manta.network>"]
 edition = "2018"
 license = "Apache-2.0"
@@ -20,6 +20,10 @@ sp-runtime = { version = "2.0.1", default-features = false }
 frame-support = { version = "2.0.1", default-features = false }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 frame-system = { version = "2.0.1", default-features = false }
+
+[dev-dependencies]
+sp-core = { version = "2.0.1", default-features = false }
+sp-io = { version = "2.0.1", default-features = false }
 
 
 [features]
