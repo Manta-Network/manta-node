@@ -1,6 +1,6 @@
-# Substrate Node Template
+# Manta Substrate Node
 
-A fresh FRAME-based [Substrate](https://www.substrate.io/) node, ready for hacking :rocket:
+A fresh FRAME-based [Substrate](https://www.substrate.io/) node, forked from `substrate-developer-hub/substrate-node-templte` :rocket:
 
 ## Getting Started
 
