@@ -269,7 +269,7 @@ impl pallet_assets::Trait for Runtime {
     type AssetId = u32;
 }
 
-impl pallet_basecoin::Trait for Runtime {
+impl pallet_manta_dap::Trait for Runtime {
     type Event = Event;
     type Balance = Balance;
     type AssetId = u32;
@@ -297,7 +297,7 @@ construct_runtime!(
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
         // Include the custom logic from the template pallet in the runtime.
         Assets: pallet_assets::{Module, Call, Storage, Event<T>},
-        Basecoin: pallet_basecoin::{Module, Call, Storage, Event<T>},
+        MantaDAP: pallet_manta_dap::{Module, Call, Storage, Event<T>},
         TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
     }
 );
