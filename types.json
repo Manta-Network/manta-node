@@ -1,0 +1,12 @@
+{
+  "Nickname": {
+    "first": "Vec<u8>",
+    "last": "Option<Vec<u8>>"
+  },
+  "StorageVersion": {
+    "_enum": [
+      "V1Bytes",
+      "V2Struct"
+    ]
+  }
+}
