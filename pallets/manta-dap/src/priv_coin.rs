@@ -142,6 +142,7 @@ impl PrivCoin for Manta {
         (coin, spending_key, TxMint { value, k, s, cm })
     }
 
+    // client side transfer
     fn transfer<R: RngCore + CryptoRng>(
         param: &Self::Param,
         proving_key: &Self::ZKProvingKey,

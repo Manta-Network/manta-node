@@ -104,6 +104,7 @@ mod zkp_types;
 use ark_std::vec::Vec;
 use crypto_types::*;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::codec::{Encode, Decode};
 use frame_system::ensure_signed;
 use rand::RngCore;
 use rand_core::CryptoRng;
@@ -258,17 +259,25 @@ decl_error! {
     }
 }
 
-// pub struct MantaData {
-//     blob: [u8;64],
-// }
-// impl Default for MantaData {
-//     fn default()->Self{
-//         MantaData{
-//             blob: [0u8;64],
-//         }
-//     }
-// }
+#[derive(Encode, Decode, Clone, PartialEq)]
+pub struct MantaCommitment {
+    blob: [u8;64],
+}
 
+impl Default for MantaCommitment {
+    fn default()->Self{
+        MantaCommitment{
+            blob: [0u8;64],
+        }
+    }
+}
+
+// TODO:
+// store more things
+// 1. hash parameter
+// 2. commitment parameter
+// 3. merkle tree parameter
+// 4. verfication key
 decl_storage! {
     trait Store for Module<T: Trait> as Assets {
         /// The number of units of assets held by any given account.
@@ -286,7 +295,7 @@ decl_storage! {
         /// List of commitments
         /// should use Vec<PrivCoinCommitmentOutput>
         /// TODO: the trait bound `Vec<ark_ec::models::twisted_edwards_extended::GroupAffine<EdwardsParameters>>: Decode` is not satisfied
-        pub CommList get(fn comm_list): Vec<[u8; 32]>;
+        pub CommList get(fn comm_list): Vec<MantaCommitment>;
 
         /// merkle root of list of commitments
         pub LedgerState get(fn legder_state):[u8; 32];
@@ -361,7 +370,6 @@ mod tests {
     }
     impl Trait for Test {
         type Event = ();
-        type Balance = u64;
     }
     type Assets = Module<Test>;
 
