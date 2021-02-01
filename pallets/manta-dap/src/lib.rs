@@ -94,7 +94,6 @@ pub trait Trait: frame_system::Trait {
 
     /// The units in which we record balances.
     type Balance: Member + Parameter + AtLeast32BitUnsigned + Default + Copy;
-
 }
 
 decl_module! {
@@ -135,13 +134,13 @@ decl_module! {
             target: <T::Lookup as StaticLookup>::Source,
             #[compact] amount: T::Balance
         ) {
+            ensure!(Self::is_init(), <Error<T>>::TransferWhenNotInit);
             let origin = ensure_signed(origin)?;
             let origin_account = origin.clone();
             let origin_balance = <Balances<T>>::get(&origin_account);
             let target = T::Lookup::lookup(target)?;
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
             ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
-
             Self::deposit_event(RawEvent::Transferred(origin, target.clone(), amount));
             <Balances<T>>::insert(origin_account, origin_balance - amount);
             <Balances<T>>::mutate(target, |balance| *balance += amount);
@@ -159,7 +158,7 @@ decl_event! {
         Issued(AccountId, Balance),
         /// The asset was transferred. \[from, to, amount\]
         Transferred(AccountId, AccountId, Balance),
-        
+
     }
 }
 
@@ -167,6 +166,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         /// This token has already been initiated
         AlreadyInitialized,
+        /// Transfer when not nitialized
+        TransferWhenNotInit,
         /// Transfer amount should be non-zero
         AmountZero,
         /// Account balance must be greater than or equal to the transfer amount
@@ -180,7 +181,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as Assets {
         /// The number of units of assets held by any given account.
         Balances: map hasher(blake2_128_concat) T::AccountId => T::Balance;
-       
+
         /// The total unit supply of the asset.
         TotalSupply get(fn total_supply): T::Balance;
 
@@ -197,7 +198,6 @@ impl<T: Trait> Module<T> {
     pub fn balance(who: T::AccountId) -> T::Balance {
         <Balances<T>>::get(who)
     }
-
 }
 
 #[cfg(test)]
@@ -349,8 +349,8 @@ mod tests {
     }
 
     #[test]
-    fn cannot_init_twice(){
-         new_test_ext().execute_with(|| {
+    fn cannot_init_twice() {
+        new_test_ext().execute_with(|| {
             assert_ok!(Assets::init(Origin::signed(1), 100));
             assert_noop!(
                 Assets::init(Origin::signed(1), 100),
@@ -358,6 +358,4 @@ mod tests {
             );
         });
     }
-    
-
 }
