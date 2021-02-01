@@ -272,7 +272,6 @@ impl pallet_assets::Trait for Runtime {
 impl pallet_manta_dap::Trait for Runtime {
     type Event = Event;
     type Balance = Balance;
-    type AssetId = u32;
 }
 
 /// Configure the template pallet in pallets/template.

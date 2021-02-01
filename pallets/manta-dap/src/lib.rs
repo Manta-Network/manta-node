@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Assets Module
+//! # Manta DAP Module
 //!
-//! A simple, secure module for dealing with fungible assets.
+//! A simple, secure module for manta anounymous payment
 //!
 //! ## Overview
 //!
@@ -26,7 +26,7 @@
 //!
 //! * Asset Issuance
 //! * Asset Transfer
-//! * Asset Destruction
+//!
 //!
 //! To use it in your runtime, you need to implement the assets [`Trait`](./trait.Trait.html).
 //!
@@ -34,21 +34,14 @@
 //!
 //! ### Terminology
 //!
-//! * **Asset issuance:** The creation of a new asset, whose total supply will belong to the
-//!   account that issues the asset.
+//! * **Asset issuance:** The creation of the asset (note: this asset can only be created once)
 //! * **Asset transfer:** The action of transferring assets from one account to another.
 //! * **Asset destruction:** The process of an account removing its entire holding of an asset.
-//! * **Fungible asset:** An asset whose units are interchangeable.
-//! * **Non-fungible asset:** An asset for which each unit has unique characteristics.
-//!
-//! ### Goals
 //!
 //! The assets system in Substrate is designed to make the following possible:
 //!
 //! * Issue a unique asset to its creator's account.
 //! * Move assets between accounts.
-//! * Remove an account's balance of an asset when requested by that account's owner and update
-//!   the asset's total supply.
 //!
 //! ## Interface
 //!
@@ -65,7 +58,7 @@
 //! ### Public Functions
 //! <!-- Original author of descriptions: @gavofyork -->
 //!
-//! * `balance` - Get the asset `id` balance of `who`.
+//! * `balance` - Get the asset balance of `who`.
 //! * `total_supply` - Get the total supply of an asset `id`.
 //!
 //! Please refer to the [`Module`](./struct.Module.html) struct for details on publicly available functions.
@@ -74,56 +67,13 @@
 //!
 //! The following example shows how to use the Assets module in your runtime by exposing public functions to:
 //!
-//! * Issue a new fungible asset for a token distribution event (airdrop).
+//! * Initiate the fungible asset for a token distribution event (airdrop).
 //! * Query the fungible asset holding balance of an account.
 //! * Query the total supply of a fungible asset that has been issued.
 //!
 //! ### Prerequisites
 //!
 //! Import the Assets module and types and derive your runtime's configuration traits from the Assets module trait.
-//!
-//! ### Simple Code Snippet
-//!
-//! ```rust,ignore
-//! use pallet_assets as assets;
-//! use frame_support::{decl_module, dispatch, ensure};
-//! use frame_system::ensure_signed;
-//!
-//! pub trait Trait: assets::Trait { }
-//!
-//! decl_module! {
-//! 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-//! 		pub fn issue_token_airdrop(origin) -> dispatch::DispatchResult {
-//! 			let sender = ensure_signed(origin).map_err(|e| e.as_str())?;
-//!
-//! 			const ACCOUNT_ALICE: u64 = 1;
-//! 			const ACCOUNT_BOB: u64 = 2;
-//! 			const COUNT_AIRDROP_RECIPIENTS: u64 = 2;
-//! 			const TOKENS_FIXED_SUPPLY: u64 = 100;
-//!
-//! 			ensure!(!COUNT_AIRDROP_RECIPIENTS.is_zero(), "Divide by zero error.");
-//!
-//! 			let asset_id = Self::next_asset_id();
-//!
-//! 			<NextAssetId<T>>::mutate(|asset_id| *asset_id += 1);
-//! 			<Balances<T>>::insert((asset_id, &ACCOUNT_ALICE), TOKENS_FIXED_SUPPLY / COUNT_AIRDROP_RECIPIENTS);
-//! 			<Balances<T>>::insert((asset_id, &ACCOUNT_BOB), TOKENS_FIXED_SUPPLY / COUNT_AIRDROP_RECIPIENTS);
-//! 			<TotalSupply<T>>::insert(asset_id, TOKENS_FIXED_SUPPLY);
-//!
-//! 			Self::deposit_event(RawEvent::Issued(asset_id, sender, TOKENS_FIXED_SUPPLY));
-//! 			Ok(())
-//! 		}
-//! 	}
-//! }
-//! ```
-//!
-//! ## Assumptions
-//!
-//! Below are assumptions that must be held when using this module.  If any of
-//! them are violated, the behavior of this module is undefined.
-//!
-//! * The total count of assets should be less than
-//!   `Trait::AssetId::max_value()`.
 //!
 //! ## Related Modules
 //!
@@ -135,8 +85,7 @@
 
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter};
 use frame_system::ensure_signed;
-use sp_runtime::traits::One;
-use sp_runtime::traits::{AtLeast32Bit, AtLeast32BitUnsigned, Member, StaticLookup, Zero};
+use sp_runtime::traits::{AtLeast32BitUnsigned, Member, StaticLookup, Zero};
 
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
@@ -146,8 +95,6 @@ pub trait Trait: frame_system::Trait {
     /// The units in which we record balances.
     type Balance: Member + Parameter + AtLeast32BitUnsigned + Default + Copy;
 
-    /// The arithmetic type of asset identifier.
-    type AssetId: Parameter + AtLeast32Bit + Default + Copy;
 }
 
 decl_module! {
@@ -166,16 +113,13 @@ decl_module! {
         /// - 1 event.
         /// # </weight>
         #[weight = 0]
-        fn issue(origin, #[compact] total: T::Balance) {
+        fn init(origin, #[compact] total: T::Balance) {
+            ensure!(!Self::is_init(), <Error<T>>::AlreadyInitialized);
             let origin = ensure_signed(origin)?;
-
-            let id = Self::next_asset_id();
-            <NextAssetId<T>>::mutate(|id| *id += One::one());
-
-            <Balances<T>>::insert((id, &origin), total);
-            <TotalSupply<T>>::insert(id, total);
-
-            Self::deposit_event(RawEvent::Issued(id, origin, total));
+            <Balances<T>>::insert(&origin, total);
+            <TotalSupply<T>>::put(total);
+            Self::deposit_event(RawEvent::Issued(origin, total));
+            Init::put(true);
         }
 
         /// Move some assets from one holder to another.
@@ -188,39 +132,21 @@ decl_module! {
         /// # </weight>
         #[weight = 0]
         fn transfer(origin,
-            #[compact] id: T::AssetId,
             target: <T::Lookup as StaticLookup>::Source,
             #[compact] amount: T::Balance
         ) {
             let origin = ensure_signed(origin)?;
-            let origin_account = (id, origin.clone());
+            let origin_account = origin.clone();
             let origin_balance = <Balances<T>>::get(&origin_account);
             let target = T::Lookup::lookup(target)?;
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
             ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
 
-            Self::deposit_event(RawEvent::Transferred(id, origin, target.clone(), amount));
+            Self::deposit_event(RawEvent::Transferred(origin, target.clone(), amount));
             <Balances<T>>::insert(origin_account, origin_balance - amount);
-            <Balances<T>>::mutate((id, target), |balance| *balance += amount);
+            <Balances<T>>::mutate(target, |balance| *balance += amount);
         }
 
-        /// Destroy any assets of `id` owned by `origin`.
-        ///
-        /// # <weight>
-        /// - `O(1)`
-        /// - 1 storage mutation (codec `O(1)`).
-        /// - 1 storage deletion (codec `O(1)`).
-        /// - 1 event.
-        /// # </weight>
-        #[weight = 0]
-        fn destroy(origin, #[compact] id: T::AssetId) {
-            let origin = ensure_signed(origin)?;
-            let balance = <Balances<T>>::take((id, &origin));
-            ensure!(!balance.is_zero(), Error::<T>::BalanceZero);
-
-            <TotalSupply<T>>::mutate(id, |total_supply| *total_supply -= balance);
-            Self::deposit_event(RawEvent::Destroyed(id, origin, balance));
-        }
     }
 }
 
@@ -228,19 +154,19 @@ decl_event! {
     pub enum Event<T> where
         <T as frame_system::Trait>::AccountId,
         <T as Trait>::Balance,
-        <T as Trait>::AssetId,
     {
-        /// Some assets were issued. \[asset_id, owner, total_supply\]
-        Issued(AssetId, AccountId, Balance),
-        /// Some assets were transferred. \[asset_id, from, to, amount\]
-        Transferred(AssetId, AccountId, AccountId, Balance),
-        /// Some assets were destroyed. \[asset_id, owner, balance\]
-        Destroyed(AssetId, AccountId, Balance),
+        /// The asset was issued. \[owner, total_supply\]
+        Issued(AccountId, Balance),
+        /// The asset was transferred. \[from, to, amount\]
+        Transferred(AccountId, AccountId, Balance),
+        
     }
 }
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
+        /// This token has already been initiated
+        AlreadyInitialized,
         /// Transfer amount should be non-zero
         AmountZero,
         /// Account balance must be greater than or equal to the transfer amount
@@ -253,13 +179,13 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as Assets {
         /// The number of units of assets held by any given account.
-        Balances: map hasher(blake2_128_concat) (T::AssetId, T::AccountId) => T::Balance;
-        /// The next asset identifier up for grabs.
-        NextAssetId get(fn next_asset_id): T::AssetId;
-        /// The total unit supply of an asset.
-        ///
-        /// TWOX-NOTE: `AssetId` is trusted, so this is safe.
-        TotalSupply: map hasher(twox_64_concat) T::AssetId => T::Balance;
+        Balances: map hasher(blake2_128_concat) T::AccountId => T::Balance;
+       
+        /// The total unit supply of the asset.
+        TotalSupply get(fn total_supply): T::Balance;
+
+        /// Has this token been initialized (can only initiate once)
+        Init get(fn is_init): bool;
     }
 }
 
@@ -268,14 +194,10 @@ impl<T: Trait> Module<T> {
     // Public immutables
 
     /// Get the asset `id` balance of `who`.
-    pub fn balance(id: T::AssetId, who: T::AccountId) -> T::Balance {
-        <Balances<T>>::get((id, who))
+    pub fn balance(who: T::AccountId) -> T::Balance {
+        <Balances<T>>::get(who)
     }
 
-    /// Get the total supply of an asset `id`.
-    pub fn total_supply(id: T::AssetId) -> T::Balance {
-        <TotalSupply<T>>::get(id)
-    }
 }
 
 #[cfg(test)]
@@ -334,7 +256,6 @@ mod tests {
     impl Trait for Test {
         type Event = ();
         type Balance = u64;
-        type AssetId = u32;
     }
     type Assets = Module<Test>;
 
@@ -348,51 +269,48 @@ mod tests {
     #[test]
     fn issuing_asset_units_to_issuer_should_work() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Assets::issue(Origin::signed(1), 100));
-            assert_eq!(Assets::balance(0, 1), 100);
+            assert_ok!(Assets::init(Origin::signed(1), 100));
+            assert_eq!(Assets::balance(1), 100);
         });
     }
 
     #[test]
     fn querying_total_supply_should_work() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Assets::issue(Origin::signed(1), 100));
-            assert_eq!(Assets::balance(0, 1), 100);
-            assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-            assert_eq!(Assets::balance(0, 1), 50);
-            assert_eq!(Assets::balance(0, 2), 50);
-            assert_ok!(Assets::transfer(Origin::signed(2), 0, 3, 31));
-            assert_eq!(Assets::balance(0, 1), 50);
-            assert_eq!(Assets::balance(0, 2), 19);
-            assert_eq!(Assets::balance(0, 3), 31);
-            assert_ok!(Assets::destroy(Origin::signed(3), 0));
-            assert_eq!(Assets::total_supply(0), 69);
+            assert_ok!(Assets::init(Origin::signed(1), 100));
+            assert_eq!(Assets::balance(1), 100);
+            assert_ok!(Assets::transfer(Origin::signed(1), 2, 50));
+            assert_eq!(Assets::balance(1), 50);
+            assert_eq!(Assets::balance(2), 50);
+            assert_ok!(Assets::transfer(Origin::signed(2), 3, 31));
+            assert_eq!(Assets::balance(1), 50);
+            assert_eq!(Assets::balance(2), 19);
+            assert_eq!(Assets::balance(3), 31);
+            assert_eq!(Assets::total_supply(), 100);
         });
     }
 
     #[test]
     fn transferring_amount_above_available_balance_should_work() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Assets::issue(Origin::signed(1), 100));
-            assert_eq!(Assets::balance(0, 1), 100);
-            assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-            assert_eq!(Assets::balance(0, 1), 50);
-            assert_eq!(Assets::balance(0, 2), 50);
+            assert_ok!(Assets::init(Origin::signed(1), 100));
+            assert_eq!(Assets::balance(1), 100);
+            assert_ok!(Assets::transfer(Origin::signed(1), 2, 50));
+            assert_eq!(Assets::balance(1), 50);
+            assert_eq!(Assets::balance(2), 50);
         });
     }
 
     #[test]
     fn transferring_amount_more_than_available_balance_should_not_work() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Assets::issue(Origin::signed(1), 100));
-            assert_eq!(Assets::balance(0, 1), 100);
-            assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-            assert_eq!(Assets::balance(0, 1), 50);
-            assert_eq!(Assets::balance(0, 2), 50);
-            assert_ok!(Assets::destroy(Origin::signed(1), 0));
-            assert_eq!(Assets::balance(0, 1), 0);
+            assert_ok!(Assets::init(Origin::signed(1), 100));
+            assert_eq!(Assets::balance(1), 100);
+            assert_ok!(Assets::transfer(Origin::signed(1), 2, 50));
+            assert_eq!(Assets::balance(1), 50);
+            assert_eq!(Assets::balance(2), 50);
             assert_noop!(
-                Assets::transfer(Origin::signed(1), 0, 1, 50),
+                Assets::transfer(Origin::signed(1), 1, 60),
                 Error::<Test>::BalanceLow
             );
         });
@@ -401,10 +319,10 @@ mod tests {
     #[test]
     fn transferring_less_than_one_unit_should_not_work() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Assets::issue(Origin::signed(1), 100));
-            assert_eq!(Assets::balance(0, 1), 100);
+            assert_ok!(Assets::init(Origin::signed(1), 100));
+            assert_eq!(Assets::balance(1), 100);
             assert_noop!(
-                Assets::transfer(Origin::signed(1), 0, 2, 0),
+                Assets::transfer(Origin::signed(1), 2, 0),
                 Error::<Test>::AmountZero
             );
         });
@@ -413,10 +331,10 @@ mod tests {
     #[test]
     fn transferring_more_units_than_total_supply_should_not_work() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Assets::issue(Origin::signed(1), 100));
-            assert_eq!(Assets::balance(0, 1), 100);
+            assert_ok!(Assets::init(Origin::signed(1), 100));
+            assert_eq!(Assets::balance(1), 100);
             assert_noop!(
-                Assets::transfer(Origin::signed(1), 0, 2, 101),
+                Assets::transfer(Origin::signed(1), 2, 101),
                 Error::<Test>::BalanceLow
             );
         });
@@ -425,21 +343,21 @@ mod tests {
     #[test]
     fn destroying_asset_balance_with_positive_balance_should_work() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Assets::issue(Origin::signed(1), 100));
-            assert_eq!(Assets::balance(0, 1), 100);
-            assert_ok!(Assets::destroy(Origin::signed(1), 0));
+            assert_ok!(Assets::init(Origin::signed(1), 100));
+            assert_eq!(Assets::balance(1), 100);
         });
     }
 
     #[test]
-    fn destroying_asset_balance_with_zero_balance_should_not_work() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Assets::issue(Origin::signed(1), 100));
-            assert_eq!(Assets::balance(0, 2), 0);
+    fn cannot_init_twice(){
+         new_test_ext().execute_with(|| {
+            assert_ok!(Assets::init(Origin::signed(1), 100));
             assert_noop!(
-                Assets::destroy(Origin::signed(2), 0),
-                Error::<Test>::BalanceZero
+                Assets::init(Origin::signed(1), 100),
+                Error::<Test>::AlreadyInitialized
             );
         });
     }
+    
+
 }
