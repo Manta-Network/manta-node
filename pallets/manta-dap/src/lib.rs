@@ -83,17 +83,14 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
-use sp_runtime::traits::{AtLeast32BitUnsigned, Member, StaticLookup, Zero};
+use sp_runtime::traits::{StaticLookup, Zero};
 
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-
-    /// The units in which we record balances.
-    type Balance: Member + Parameter + AtLeast32BitUnsigned + Default + Copy;
 }
 
 decl_module! {
@@ -112,11 +109,11 @@ decl_module! {
         /// - 1 event.
         /// # </weight>
         #[weight = 0]
-        fn init(origin, #[compact] total: T::Balance) {
+        fn init(origin, total: u64) {
             ensure!(!Self::is_init(), <Error<T>>::AlreadyInitialized);
             let origin = ensure_signed(origin)?;
             <Balances<T>>::insert(&origin, total);
-            <TotalSupply<T>>::put(total);
+            <TotalSupply>::put(total);
             Self::deposit_event(RawEvent::Issued(origin, total));
             Init::put(true);
         }
@@ -132,9 +129,9 @@ decl_module! {
         #[weight = 0]
         fn transfer(origin,
             target: <T::Lookup as StaticLookup>::Source,
-            #[compact] amount: T::Balance
+            amount: u64
         ) {
-            ensure!(Self::is_init(), <Error<T>>::TransferWhenNotInit);
+            ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
             let origin_account = origin.clone();
             let origin_balance = <Balances<T>>::get(&origin_account);
@@ -145,19 +142,17 @@ decl_module! {
             <Balances<T>>::insert(origin_account, origin_balance - amount);
             <Balances<T>>::mutate(target, |balance| *balance += amount);
         }
-
     }
 }
 
 decl_event! {
     pub enum Event<T> where
         <T as frame_system::Trait>::AccountId,
-        <T as Trait>::Balance,
     {
         /// The asset was issued. \[owner, total_supply\]
-        Issued(AccountId, Balance),
+        Issued(AccountId, u64),
         /// The asset was transferred. \[from, to, amount\]
-        Transferred(AccountId, AccountId, Balance),
+        Transferred(AccountId, AccountId, u64),
 
     }
 }
@@ -167,7 +162,7 @@ decl_error! {
         /// This token has already been initiated
         AlreadyInitialized,
         /// Transfer when not nitialized
-        TransferWhenNotInit,
+        BasecoinNotInit,
         /// Transfer amount should be non-zero
         AmountZero,
         /// Account balance must be greater than or equal to the transfer amount
@@ -180,13 +175,13 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as Assets {
         /// The number of units of assets held by any given account.
-        Balances: map hasher(blake2_128_concat) T::AccountId => T::Balance;
+        pub Balances: map hasher(blake2_128_concat) T::AccountId => u64;
 
         /// The total unit supply of the asset.
-        TotalSupply get(fn total_supply): T::Balance;
+        pub TotalSupply get(fn total_supply): u64;
 
         /// Has this token been initialized (can only initiate once)
-        Init get(fn is_init): bool;
+        pub Init get(fn is_init): bool;
     }
 }
 
@@ -195,7 +190,7 @@ impl<T: Trait> Module<T> {
     // Public immutables
 
     /// Get the asset `id` balance of `who`.
-    pub fn balance(who: T::AccountId) -> T::Balance {
+    pub fn balance(who: T::AccountId) -> u64 {
         <Balances<T>>::get(who)
     }
 }
