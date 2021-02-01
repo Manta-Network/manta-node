@@ -192,6 +192,38 @@ decl_module! {
             <Balances<T>>::insert(origin_account, origin_balance - amount);
             <Balances<T>>::mutate(target, |balance| *balance += amount);
         }
+
+        /// Mint
+        /// TODO: rename arguments
+        /// TODO: do we need to store k and s?
+        #[weight = 0]
+        fn mint(origin,
+                amount: u64,
+                k: [u8; 64],
+                s: [u8;32],
+                cm: [u8;64])  {
+            // get the original balance
+            ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
+            let origin = ensure_signed(origin)?;
+            let origin_account = origin.clone();
+            ensure!(!amount.is_zero(), Error::<T>::AmountZero);
+            let origin_balance = <Balances<T>>::get(&origin_account);
+            ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
+            // check the validity of the commitment
+            let payload = [amount.to_le_bytes().as_ref(), k.as_ref()].concat();
+            ensure!(priv_coin::comm_open(s, &payload, cm), <Error<T>>::MintFail);
+            // add to comm_list and compute new merkle root
+            let mut comm_list = CommList::get();
+            comm_list.push(cm);
+            let new_root = priv_coin::merkle_root(comm_list);
+            // TODO: check cm is not in comm_list
+            Self::deposit_event(RawEvent::Minted(origin, amount));
+            CommList::put(comm_list);
+            LedgerState::put(new_root);
+            let old_pool_balance = PoolBalance::get();
+            PoolBalance::put(old_pool_balance + amount);
+        }
+
     }
 }
 
@@ -203,6 +235,8 @@ decl_event! {
         Issued(AccountId, u64),
         /// The asset was transferred. \[from, to, amount\]
         Transferred(AccountId, AccountId, u64),
+        /// The asset was minted to private
+        Minted(AccountId, u64),
 
     }
 }
@@ -219,6 +253,8 @@ decl_error! {
         BalanceLow,
         /// Balance should be non-zero
         BalanceZero,
+        /// Mint failure
+        MintFail,
     }
 }
 
@@ -232,6 +268,20 @@ decl_storage! {
 
         /// Has this token been initialized (can only initiate once)
         pub Init get(fn is_init): bool;
+
+        /// List of sns
+        pub SNList get(fn sn_list): Vec<[u8; 32]>;
+
+        /// List of commitments
+        /// should use Vec<PrivCoinCommitmentOutput>
+        /// TODO: the trait bound `Vec<ark_ec::models::twisted_edwards_extended::GroupAffine<EdwardsParameters>>: Decode` is not satisfied
+        pub CommList get(fn comm_list): Vec<[u8; 64]>;
+
+        /// merkle root of list of commitments
+        pub LedgerState get(fn legder_state): [u8; 64];
+
+        /// the balance of minted coins
+        pub PoolBalance get(fn pool_balance): u64;
     }
 }
 

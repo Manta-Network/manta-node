@@ -51,6 +51,27 @@ pub struct Transfer {
 
 pub struct Manta;
 
+/// TODO: by zhenfei
+pub fn comm_encode(cm: PrivCoinCommitmentOutput) -> [u8; 64] {
+    [0u8; 64]
+}
+
+/// TODO: by zhenfei
+pub fn comm_decode(bytes: [u8; 64]) -> PrivCoinCommitmentOutput {
+    PrivCoinCommitmentOutput::default()
+}
+
+/// TODO: by zhenfei
+pub fn comm_open(r: [u8; 32], payload: &[u8], cm: [u8; 64]) -> bool {
+    true
+}
+
+/// TODO: by zhenfei
+/// TODO: figure out how to do hash param
+pub fn merkle_root(payload: Vec<[u8; 64]>) -> [u8; 64] {
+    [0u8; 64]
+}
+
 impl PrivCoin for Manta {
     type Param = Param;
     type ZKProvingKey = Groth16PK;
