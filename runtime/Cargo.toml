@@ -35,6 +35,8 @@ frame-system = { default-features = false, version = '2.0.1' }
 frame-system-benchmarking = { default-features = false, optional = true, version = '2.0.1' }
 frame-system-rpc-runtime-api = { default-features = false, version = '2.0.1' }
 pallet-aura = { default-features = false, version = '2.0.1' }
+pallet-assets = { default-features = false, version = '2.0.1' }
+pallet-manta-dap = { path = "../pallets/manta-dap", default-features = false }
 pallet-balances = { default-features = false, version = '2.0.1' }
 pallet-grandpa = { default-features = false, version = '2.0.1' }
 pallet-randomness-collective-flip = { default-features = false, version = '2.0.1' }
@@ -74,6 +76,8 @@ std = [
     'frame-system/std',
     'frame-system-rpc-runtime-api/std',
     'pallet-aura/std',
+    'pallet-assets/std',
+    'pallet-manta-dap/std',
     'pallet-balances/std',
     'pallet-grandpa/std',
     'pallet-randomness-collective-flip/std',
