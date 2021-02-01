@@ -201,7 +201,7 @@ decl_module! {
                 amount: u64,
                 k: [u8; 64],
                 s: [u8;32],
-                cm: [u8;64])  {
+                cm: [u8; 32])  {
             // get the original balance
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
@@ -211,11 +211,11 @@ decl_module! {
             ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
             // check the validity of the commitment
             let payload = [amount.to_le_bytes().as_ref(), k.as_ref()].concat();
-            ensure!(priv_coin::comm_open(s, &payload, cm), <Error<T>>::MintFail);
+            ensure!(priv_coin::comm_open(&s, &payload, &cm), <Error<T>>::MintFail);
             // add to comm_list and compute new merkle root
             let mut comm_list = CommList::get();
             comm_list.push(cm);
-            let new_root = priv_coin::merkle_root(comm_list);
+            let new_root = priv_coin::merkle_root(comm_list.clone());
             // TODO: check cm is not in comm_list
             Self::deposit_event(RawEvent::Minted(origin, amount));
             CommList::put(comm_list);
@@ -258,6 +258,17 @@ decl_error! {
     }
 }
 
+// pub struct MantaData {
+//     blob: [u8;64],
+// }
+// impl Default for MantaData {
+//     fn default()->Self{
+//         MantaData{
+//             blob: [0u8;64],
+//         }
+//     }
+// }
+
 decl_storage! {
     trait Store for Module<T: Trait> as Assets {
         /// The number of units of assets held by any given account.
@@ -275,10 +286,10 @@ decl_storage! {
         /// List of commitments
         /// should use Vec<PrivCoinCommitmentOutput>
         /// TODO: the trait bound `Vec<ark_ec::models::twisted_edwards_extended::GroupAffine<EdwardsParameters>>: Decode` is not satisfied
-        pub CommList get(fn comm_list): Vec<[u8; 64]>;
+        pub CommList get(fn comm_list): Vec<[u8; 32]>;
 
         /// merkle root of list of commitments
-        pub LedgerState get(fn legder_state): [u8; 64];
+        pub LedgerState get(fn legder_state):[u8; 32];
 
         /// the balance of minted coins
         pub PoolBalance get(fn pool_balance): u64;

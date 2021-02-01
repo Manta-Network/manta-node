@@ -7,14 +7,14 @@ use ark_crypto_primitives::prf::Blake2s;
 use ark_crypto_primitives::prf::PRF;
 use ark_crypto_primitives::CommitmentScheme;
 use ark_ed_on_bls12_381::Fr;
-use ark_ff::ToBytes;
 use ark_ff::UniformRand;
+use ark_ff::{FromBytes, ToBytes};
 use ark_groth16::create_random_proof;
 use ark_std::vec::Vec;
 use rand::RngCore;
 use rand_core::CryptoRng;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Coin {
     pub pk: [u8; 32],
     pub rho: [u8; 32],
@@ -25,13 +25,13 @@ pub struct Coin {
     pub value: u32,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct CoinPrivateInfo {
     pub sk: [u8; 32],
     sn: [u8; 32],
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TxMint {
     value: u32,
     k: PrivCoinCommitmentOutput,
@@ -44,7 +44,7 @@ pub struct Param {
     pub hash_param: HashParam,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Transfer {
     pub proof: Groth16Proof,
 }
@@ -52,24 +52,42 @@ pub struct Transfer {
 pub struct Manta;
 
 /// TODO: by zhenfei
-pub fn comm_encode(cm: PrivCoinCommitmentOutput) -> [u8; 64] {
-    [0u8; 64]
+pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 32] {
+    // let mut bytes:Vec<u8> = Vec::new();
+    // cm.write(&mut bytes);
+    let mut res = [0u8; 32];
+    // write!(&mut res[..], "{:?} ", bytes).expect("Can't write");
+    // res
+    cm.write(res.as_mut()).unwrap();
+    res
 }
 
 /// TODO: by zhenfei
-pub fn comm_decode(bytes: [u8; 64]) -> PrivCoinCommitmentOutput {
-    PrivCoinCommitmentOutput::default()
+pub fn comm_decode(bytes: &[u8; 32]) -> PrivCoinCommitmentOutput {
+    // let x = Fq::read(bytes[0..32]);
+    // let y = Fq::read(bytes[32..64]);
+
+    PrivCoinCommitmentOutput::read(bytes.as_ref()).unwrap()
+    // todo!()
 }
 
 /// TODO: by zhenfei
-pub fn comm_open(r: [u8; 32], payload: &[u8], cm: [u8; 64]) -> bool {
+// pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
+//     let open = Randomness(Fr::from(r));
+//     cm == PrivCoinCommitmentScheme::commit(&param, &buf, &r).unwrap()
+// }
+pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 32]) -> bool {
     true
 }
 
 /// TODO: by zhenfei
 /// TODO: figure out how to do hash param
-pub fn merkle_root(payload: Vec<[u8; 64]>) -> [u8; 64] {
-    [0u8; 64]
+// pub fn merkle_root(payload: Vec<[u8; 64]>, param_bytes: &[u8]) -> [u8; 64] {
+// let param = HashParam::from(param_bytes);
+// let tree = LedgerMerkleTree::new(param, &list).unwrap();
+// tree.root()
+pub fn merkle_root(payload: Vec<[u8; 32]>) -> [u8; 32] {
+    [0u8; 32]
 }
 
 impl PrivCoin for Manta {

@@ -5,11 +5,11 @@ use ark_crypto_primitives::crh::FixedLengthCRH;
 use ark_crypto_primitives::merkle_tree::Config;
 use ark_crypto_primitives::merkle_tree::Digest;
 use ark_crypto_primitives::merkle_tree::Path;
+use ark_crypto_primitives::prf::Blake2s;
 use ark_crypto_primitives::signature::schnorr;
 use ark_crypto_primitives::CommitmentScheme;
 use ark_crypto_primitives::MerkleTree;
 use ark_ed_on_bls12_381::EdwardsProjective;
-use ark_crypto_primitives::prf::Blake2s;
 // use blake2::Blake2s;
 
 // //=======================
