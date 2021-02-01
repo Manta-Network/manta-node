@@ -89,12 +89,12 @@ extern crate ark_groth16;
 extern crate ark_r1cs_std;
 extern crate ark_relations;
 extern crate ark_std;
-extern crate blake2;
-extern crate ed25519_dalek;
+// extern crate blake2;
+// extern crate ed25519_dalek;
 // extern crate rand;
 // extern crate rand_chacha;
 // extern crate rand_core;
-extern crate sha2;
+// extern crate sha2;
 
 mod crypto_types;
 mod priv_coin;

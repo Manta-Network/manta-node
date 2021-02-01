@@ -9,21 +9,22 @@ use ark_crypto_primitives::signature::schnorr;
 use ark_crypto_primitives::CommitmentScheme;
 use ark_crypto_primitives::MerkleTree;
 use ark_ed_on_bls12_381::EdwardsProjective;
-use blake2::Blake2s;
+use ark_crypto_primitives::prf::Blake2s;
+// use blake2::Blake2s;
 
-//=======================
-// ed25519 signature and related definitions
-//=======================
+// //=======================
+// // ed25519 signature and related definitions
+// //=======================
+// // #[allow(dead_code)]
+// // pub(crate) type Ed25519Param = String;
 // #[allow(dead_code)]
-// pub(crate) type Ed25519Param = String;
-#[allow(dead_code)]
-pub(crate) type Ed25519PK = ed25519_dalek::PublicKey;
-#[allow(dead_code)]
-pub(crate) type Ed25519SK = ed25519_dalek::SecretKey;
-#[allow(dead_code)]
-pub(crate) type Ed25519Keypair = ed25519_dalek::Keypair;
-#[allow(dead_code)]
-pub(crate) type Ed25519Sig = ed25519_dalek::Signature;
+// pub(crate) type Ed25519PK = ed25519_dalek::PublicKey;
+// #[allow(dead_code)]
+// pub(crate) type Ed25519SK = ed25519_dalek::SecretKey;
+// #[allow(dead_code)]
+// pub(crate) type Ed25519Keypair = ed25519_dalek::Keypair;
+// #[allow(dead_code)]
+// pub(crate) type Ed25519Sig = ed25519_dalek::Signature;
 
 //=======================
 // schnorr signature and related definitions
