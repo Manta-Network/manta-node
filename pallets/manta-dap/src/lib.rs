@@ -83,9 +83,60 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+
+extern crate ark_crypto_primitives;
+extern crate ark_ed_on_bls12_381;
+extern crate ark_groth16;
+extern crate ark_r1cs_std;
+extern crate ark_relations;
+extern crate ark_std;
+extern crate blake2;
+extern crate ed25519_dalek;
+extern crate rand;
+extern crate rand_chacha;
+extern crate rand_core;
+extern crate sha2;
+
+mod crypto_types;
+mod priv_coin;
+mod zkp;
+mod zkp_types;
+
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{StaticLookup, Zero};
+use crypto_types::*;
+use rand::RngCore;
+use rand_core::CryptoRng;
+
+pub trait PrivCoin {
+    type Address;
+    type Param;
+    type Coin;
+    type SK;
+    type Mint;
+    type Transfer;
+    type ZKProvingKey;
+
+    // Minting process does not concern any ZKP
+    fn mint<R: RngCore + CryptoRng>(
+        param: &Self::Param,
+        sk: &[u8; 32],
+        value: u32,
+        rng: &mut R,
+    ) -> (Self::Coin, Self::SK, Self::Mint);
+
+    fn transfer<R: RngCore + CryptoRng>(
+        param: &Self::Param,
+        proving_key: &Self::ZKProvingKey,
+        sender: &Self::Coin,
+        sender_sk: &Self::SK,
+        receiver: &Self::Address,
+        ledger: Vec<PrivCoinCommitmentOutput>,
+        rng: &mut R,
+    ) -> (Self::Coin, Self::Transfer);
+}
+
 
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
