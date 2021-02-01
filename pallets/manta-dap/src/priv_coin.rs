@@ -10,8 +10,10 @@ use ark_ed_on_bls12_381::Fr;
 use ark_ff::ToBytes;
 use ark_ff::UniformRand;
 use ark_groth16::create_random_proof;
+use ark_std::vec::Vec;
 use rand::RngCore;
 use rand_core::CryptoRng;
+
 #[derive(Debug, Clone, Default)]
 pub struct Coin {
     pub pk: [u8; 32],

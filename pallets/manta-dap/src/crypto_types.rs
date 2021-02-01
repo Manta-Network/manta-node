@@ -14,8 +14,8 @@ use blake2::Blake2s;
 //=======================
 // ed25519 signature and related definitions
 //=======================
-#[allow(dead_code)]
-pub(crate) type Ed25519Param = String;
+// #[allow(dead_code)]
+// pub(crate) type Ed25519Param = String;
 #[allow(dead_code)]
 pub(crate) type Ed25519PK = ed25519_dalek::PublicKey;
 #[allow(dead_code)]

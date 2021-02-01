@@ -12,6 +12,7 @@ use ark_ff::ToBytes;
 use ark_r1cs_std::alloc::AllocVar;
 use ark_r1cs_std::prelude::*;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
+use ark_std::vec::Vec;
 
 // =============================
 // circuit for the following statements
@@ -94,7 +95,7 @@ fn token_well_formed_circuit_helper(
     // statement 1: k = com(pk||rho, r)
     // =============================
     let input: Vec<u8> = [coin.pk, coin.rho].concat();
-    let mut input_var = vec![];
+    let mut input_var = Vec::new();
     for byte in &input {
         input_var.push(UInt8::new_witness(cs.clone(), || Ok(*byte)).unwrap());
     }
@@ -122,7 +123,7 @@ fn token_well_formed_circuit_helper(
     // =============================
     let mut input: Vec<u8> = coin.value.to_le_bytes().to_vec();
     coin.k.write(&mut input).unwrap();
-    let mut input_var = vec![];
+    let mut input_var = Vec::new();
     for byte in &input {
         input_var.push(UInt8::new_witness(cs.clone(), || Ok(*byte)).unwrap());
     }
@@ -202,7 +203,7 @@ fn merkle_membership_circuit_proof(
     // Allocate Leaf
     // FIXME: account commitment is already a hashed element
     // we should use it directly, rather than serialize it again
-    let mut buf: Vec<u8> = vec![];
+    let mut buf: Vec<u8> = Vec::new();
     cm.write(&mut buf).unwrap();
 
     let leaf_g = UInt8::constant_vec(&buf);
