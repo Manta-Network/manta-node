@@ -236,13 +236,20 @@ decl_module! {
             let payload = [amount.to_le_bytes().as_ref(), k.as_ref()].concat();
             ensure!(priv_coin::comm_open(&commit_param_seed, &s, &payload, &cm), <Error<T>>::MintFail);
 
+            // check cm is not in coin_list
+            let mut coin_list = CoinList::get();
+            for e in coin_list.iter() {
+                ensure!(
+                    e.cm != cm,
+                    Error::<T>::CoinExist
+                )
+            }
+
             // add the new coin to the ledger 
-            // TODO: check cm is not in coin_list
             let coin = MantaCoin {
                 cm,
                 value: amount,
             };
-            let mut coin_list = CoinList::get();
             coin_list.push(coin);
 
             // update the merkle root
@@ -287,6 +294,8 @@ decl_error! {
         BalanceZero,
         /// Mint failure
         MintFail,
+        /// MantaCoin exist
+        CoinExist,
     }
 }
 
