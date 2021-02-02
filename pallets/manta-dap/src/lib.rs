@@ -160,12 +160,22 @@ decl_module! {
         /// # </weight>
         #[weight = 0]
         fn init(origin, total: u64) {
+
+            // for now we hard code the seeds as:
+            //  * hash parameter seed: [1u8; 32]
+            //  * commitment parameter seed: [2u8; 32]
+            // We may want to pass those two in for `init`
+            let hash_param_seed = [1u8; 32];
+            let commit_param_seed = [2u8; 32];
+
             ensure!(!Self::is_init(), <Error<T>>::AlreadyInitialized);
             let origin = ensure_signed(origin)?;
             <Balances<T>>::insert(&origin, total);
             <TotalSupply>::put(total);
             Self::deposit_event(RawEvent::Issued(origin, total));
             Init::put(true);
+            HashParamSeed::put(hash_param_seed);
+            CommitParamSeed::put(commit_param_seed);
         }
 
         /// Move some assets from one holder to another.
@@ -209,13 +219,18 @@ decl_module! {
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
             let origin_balance = <Balances<T>>::get(&origin_account);
             ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
+
+            // get the parameter seeds from the ledger
+            let hash_param_seed = HashParamSeed::get();
+            let commit_param_seed = CommitParamSeed::get();
+
             // check the validity of the commitment
             let payload = [amount.to_le_bytes().as_ref(), k.as_ref()].concat();
-            ensure!(priv_coin::comm_open(&s, &payload, &cm), <Error<T>>::MintFail);
+            ensure!(priv_coin::comm_open(&commit_param_seed, &s, &payload, &cm), <Error<T>>::MintFail);
             // add to comm_list and compute new merkle root
             let mut comm_list = CommList::get();
             comm_list.push(cm);
-            let new_root = priv_coin::merkle_root(comm_list.clone());
+            let new_root = priv_coin::merkle_root(&hash_param_seed, comm_list.clone());
             // TODO: check cm is not in comm_list
             Self::deposit_event(RawEvent::Minted(origin, amount));
             CommList::put(comm_list);
@@ -258,17 +273,6 @@ decl_error! {
     }
 }
 
-// pub struct MantaData {
-//     blob: [u8;64],
-// }
-// impl Default for MantaData {
-//     fn default()->Self{
-//         MantaData{
-//             blob: [0u8;64],
-//         }
-//     }
-// }
-
 decl_storage! {
     trait Store for Module<T: Trait> as Assets {
         /// The number of units of assets held by any given account.
@@ -293,6 +297,12 @@ decl_storage! {
 
         /// the balance of minted coins
         pub PoolBalance get(fn pool_balance): u64;
+
+        /// the seed of hash parameter
+        pub HashParamSeed get(fn hash_param_seed): [u8; 32];
+
+        /// the seed of commit parameter
+        pub CommitParamSeed get(fn commit_param_seed): [u8; 32];
     }
 }
 

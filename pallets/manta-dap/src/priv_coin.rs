@@ -54,20 +54,20 @@ pub struct Transfer {
 
 pub struct Manta;
 
+#[allow(dead_code)]
 pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 64] {
     let mut res = [0u8; 64];
     cm.write(res.as_mut()).unwrap();
     res
 }
 
+#[allow(dead_code)]
 pub fn comm_decode(bytes: &[u8; 64]) -> PrivCoinCommitmentOutput {
     PrivCoinCommitmentOutput::read(bytes.as_ref()).unwrap()
 }
 
-pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
-    // for now the parameters is generated from a fixed seed
-    // FIXME: store the seed or param in the ledger
-    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+pub fn comm_open(param_seed: &[u8; 32], r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
+    let mut rng = ChaCha20Rng::from_seed(*param_seed);
     let param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
 
     let open = Randomness(Fr::read(r.as_ref()).unwrap());
@@ -75,10 +75,8 @@ pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
     PrivCoinCommitmentScheme::commit(&param, payload, &open).unwrap() == cm
 }
 
-pub fn merkle_root(payload: Vec<[u8; 64]>) -> [u64; 8] {
-    // for now the parameters is generated from a fixed seed
-    // FIXME: store the seed or param in the ledger
-    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+pub fn merkle_root(param_seed: &[u8; 32], payload: Vec<[u8; 64]>) -> [u64; 8] {
+    let mut rng = ChaCha20Rng::from_seed(*param_seed);
     let param = Hash::setup(&mut rng).unwrap();
 
     let leaf: Vec<PrivCoinCommitmentOutput> = payload
