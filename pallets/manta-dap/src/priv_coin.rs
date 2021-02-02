@@ -13,6 +13,7 @@ use ark_groth16::create_random_proof;
 use ark_std::vec::Vec;
 use rand::RngCore;
 use rand_core::CryptoRng;
+use crate::MantaCommitment;
 
 #[derive(Debug, Clone)]
 pub struct Coin {
@@ -76,7 +77,7 @@ pub fn comm_decode(bytes: &[u8; 32]) -> PrivCoinCommitmentOutput {
 //     let open = Randomness(Fr::from(r));
 //     cm == PrivCoinCommitmentScheme::commit(&param, &buf, &r).unwrap()
 // }
-pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 32]) -> bool {
+pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
     true
 }
 
@@ -86,7 +87,7 @@ pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 32]) -> bool {
 // let param = HashParam::from(param_bytes);
 // let tree = LedgerMerkleTree::new(param, &list).unwrap();
 // tree.root()
-pub fn merkle_root(payload: Vec<[u8; 32]>) -> [u8; 32] {
+pub fn merkle_root(payload: Vec<MantaCommitment>) -> [u8; 32] {
     [0u8; 32]
 }
 

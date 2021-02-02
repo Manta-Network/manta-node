@@ -96,10 +96,10 @@ extern crate ark_std;
 // extern crate rand_core;
 // extern crate sha2;
 
-mod crypto_types;
-mod priv_coin;
-mod zkp;
-mod zkp_types;
+pub mod crypto_types;
+pub mod priv_coin;
+pub mod zkp;
+pub mod zkp_types;
 
 use ark_std::vec::Vec;
 use crypto_types::*;
@@ -138,6 +138,21 @@ pub trait PrivCoin {
     ) -> (Self::Coin, Self::Transfer);
 }
 
+#[derive(Encode, Decode, Clone, PartialEq)]
+pub struct MantaCommitment {
+    blob: [u8;64],
+    amount: u64,
+}
+
+impl Default for MantaCommitment {
+    fn default()->Self{
+        MantaCommitment{
+            blob: [0u8; 64],
+            amount: 0u64,
+        }
+    }
+}
+
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
     /// The overarching event type.
@@ -161,6 +176,7 @@ decl_module! {
         /// # </weight>
         #[weight = 0]
         fn init(origin, total: u64) {
+            // TODO: add parameters for zkp 
             ensure!(!Self::is_init(), <Error<T>>::AlreadyInitialized);
             let origin = ensure_signed(origin)?;
             <Balances<T>>::insert(&origin, total);
@@ -201,8 +217,8 @@ decl_module! {
         fn mint(origin,
                 amount: u64,
                 k: [u8; 64],
-                s: [u8;32],
-                cm: [u8; 32])  {
+                s: [u8; 32],
+                cm: [u8; 64] )  {
             // get the original balance
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
@@ -215,7 +231,11 @@ decl_module! {
             ensure!(priv_coin::comm_open(&s, &payload, &cm), <Error<T>>::MintFail);
             // add to comm_list and compute new merkle root
             let mut comm_list = CommList::get();
-            comm_list.push(cm);
+            let manta_cm = MantaCommitment{
+                blob: cm,
+                amount: amount,
+            };
+            comm_list.push(manta_cm);
             let new_root = priv_coin::merkle_root(comm_list.clone());
             // TODO: check cm is not in comm_list
             Self::deposit_event(RawEvent::Minted(origin, amount));
@@ -225,6 +245,34 @@ decl_module! {
             PoolBalance::put(old_pool_balance + amount);
         }
 
+        /// Private Transfer
+        /// check the type of sn_old
+        #[weight = 0]
+        fn private_transfer(origin,
+                            merkle_root: [u8; 64],
+                            sn_old: [u8; 32],
+                            cm: [u8; 64],
+                            amount: u64,
+                            zkp:: [u8; 196])
+        {
+            // check if sn_old already spent
+            let mut sn_list = SNList::get();
+            ensure!(sn_list.contains(sn_old), <Error<T>>::PrivateCoinSpent);
+            sn_list.push(sn_old);                     
+            // check validity of zkp
+            // TODO: add zkp validation logic
+            // ensure!()
+            let mut comm_list = CommList::get();
+            let manta_cm = MantaCommitment{
+                blob: cm,
+                amount: amount,
+            };
+            comm_list.push(manta_cm);
+            // TODO: revisit replay attack here
+            Self::deposit_event(RawEvent::PrivateTransferred(origin));
+            CommList::put(comm_list);
+            SNList::put(sn_list);
+        }
     }
 }
 
@@ -238,7 +286,8 @@ decl_event! {
         Transferred(AccountId, AccountId, u64),
         /// The asset was minted to private
         Minted(AccountId, u64),
-
+        /// Private transfer
+        PrivateTransferred(AccountId),
     }
 }
 
@@ -256,25 +305,16 @@ decl_error! {
         BalanceZero,
         /// Mint failure
         MintFail,
-    }
-}
-
-#[derive(Encode, Decode, Clone, PartialEq)]
-pub struct MantaCommitment {
-    blob: [u8;64],
-}
-
-impl Default for MantaCommitment {
-    fn default()->Self{
-        MantaCommitment{
-            blob: [0u8;64],
-        }
+        /// Private coin double spend
+        PrivateCoinSpent,
+        /// Invalid ZKP
+        InvalidProof,
     }
 }
 
 // TODO:
 // store more things
-// 1. hash parameter
+// 1. hash parameter: crypto_types L65 TODO: by Zhenfei
 // 2. commitment parameter
 // 3. merkle tree parameter
 // 4. verfication key
