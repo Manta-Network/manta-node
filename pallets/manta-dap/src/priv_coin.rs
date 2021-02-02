@@ -11,8 +11,12 @@ use ark_ff::UniformRand;
 use ark_ff::{FromBytes, ToBytes};
 use ark_groth16::create_random_proof;
 use ark_std::vec::Vec;
-use rand::RngCore;
+use rand_core::RngCore;
+use rand_chacha::ChaCha20Rng;
 use rand_core::CryptoRng;
+use ark_crypto_primitives::FixedLengthCRH;
+use rand::prelude::thread_rng;
+
 
 #[derive(Debug, Clone)]
 pub struct Coin {
@@ -51,43 +55,47 @@ pub struct Transfer {
 
 pub struct Manta;
 
-/// TODO: by zhenfei
-pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 32] {
-    // let mut bytes:Vec<u8> = Vec::new();
-    // cm.write(&mut bytes);
-    let mut res = [0u8; 32];
-    // write!(&mut res[..], "{:?} ", bytes).expect("Can't write");
-    // res
+pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 64] {
+    let mut res = [0u8; 64];
     cm.write(res.as_mut()).unwrap();
     res
 }
 
-/// TODO: by zhenfei
-pub fn comm_decode(bytes: &[u8; 32]) -> PrivCoinCommitmentOutput {
-    // let x = Fq::read(bytes[0..32]);
-    // let y = Fq::read(bytes[32..64]);
-
+pub fn comm_decode(bytes: &[u8; 64]) -> PrivCoinCommitmentOutput {
     PrivCoinCommitmentOutput::read(bytes.as_ref()).unwrap()
-    // todo!()
 }
 
-/// TODO: by zhenfei
-// pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
-//     let open = Randomness(Fr::from(r));
-//     cm == PrivCoinCommitmentScheme::commit(&param, &buf, &r).unwrap()
-// }
-pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 32]) -> bool {
-    true
+
+pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
+    // for now the parameters is generated at random
+    // FIXME: store the seed or param in the ledger
+    let mut rng = rand::thread_rng();
+    let param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
+
+    let open = Randomness(Fr::read(r.as_ref()).unwrap());
+    let cm = PrivCoinCommitmentOutput::read(cm.as_ref()).unwrap();
+    PrivCoinCommitmentScheme::commit(&param, payload, &open).unwrap() == cm
 }
 
-/// TODO: by zhenfei
-/// TODO: figure out how to do hash param
-// pub fn merkle_root(payload: Vec<[u8; 64]>, param_bytes: &[u8]) -> [u8; 64] {
-// let param = HashParam::from(param_bytes);
-// let tree = LedgerMerkleTree::new(param, &list).unwrap();
-// tree.root()
-pub fn merkle_root(payload: Vec<[u8; 32]>) -> [u8; 32] {
-    [0u8; 32]
+
+pub fn merkle_root(payload: Vec<[u8; 64]>) -> [u64; 8] {
+    // for now the parameters is generated at random
+    // FIXME: store the seed or param in the ledger
+
+    let mut rng = rand::thread_rng();
+    let param = Hash::setup(&mut rng).unwrap();
+
+    let leaf: Vec<PrivCoinCommitmentOutput> = payload
+        .iter()
+        .map(|x| PrivCoinCommitmentOutput::read(x.as_ref()).unwrap())
+        .collect();
+
+    let tree = LedgerMerkleTree::new(param, &leaf).unwrap();
+    let root = tree.root();
+    let mut bytes = [0u8;32];
+    root.write(bytes.as_mut()).unwrap();
+    // TODO: cast bytes as [u64;8]
+    [0u64; 8]
 }
 
 impl PrivCoin for Manta {

@@ -89,10 +89,10 @@ extern crate ark_groth16;
 extern crate ark_r1cs_std;
 extern crate ark_relations;
 extern crate ark_std;
+extern crate rand_chacha;
 // extern crate blake2;
 // extern crate ed25519_dalek;
 // extern crate rand;
-// extern crate rand_chacha;
 // extern crate rand_core;
 // extern crate sha2;
 
@@ -201,7 +201,7 @@ decl_module! {
                 amount: u64,
                 k: [u8; 64],
                 s: [u8;32],
-                cm: [u8; 32])  {
+                cm: [u8; 64])  {
             // get the original balance
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
@@ -286,10 +286,10 @@ decl_storage! {
         /// List of commitments
         /// should use Vec<PrivCoinCommitmentOutput>
         /// TODO: the trait bound `Vec<ark_ec::models::twisted_edwards_extended::GroupAffine<EdwardsParameters>>: Decode` is not satisfied
-        pub CommList get(fn comm_list): Vec<[u8; 32]>;
+        pub CommList get(fn comm_list): Vec<[u8; 64]>;
 
         /// merkle root of list of commitments
-        pub LedgerState get(fn legder_state):[u8; 32];
+        pub LedgerState get(fn legder_state):[u64; 8];
 
         /// the balance of minted coins
         pub PoolBalance get(fn pool_balance): u64;
@@ -361,7 +361,7 @@ mod tests {
     }
     impl Trait for Test {
         type Event = ();
-        type Balance = u64;
+        // type Balance = u64;
     }
     type Assets = Module<Test>;
 

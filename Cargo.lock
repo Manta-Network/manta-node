@@ -4110,6 +4110,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "rand 0.7.3",
+ "rand_chacha 0.3.0",
  "rand_core 0.5.1",
  "serde",
  "sp-core",
@@ -5244,9 +5245,9 @@ checksum = "53552c6c49e1e13f1a203ef0080ab3bbef0beb570a528993e83df057a9d9bba1"
 
 [[package]]
 name = "ring"
-version = "0.16.19"
+version = "0.16.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "024a1e66fea74c66c66624ee5622a7ff0e4b73a13b4f5c326ddb50c708944226"
+checksum = "3053cf52e236a3ed746dfc745aa9cacf1b791d846bdaf412f60a8d7d6e17c8fc"
 dependencies = [
  "cc",
  "libc",
