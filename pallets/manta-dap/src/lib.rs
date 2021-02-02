@@ -101,6 +101,7 @@ mod priv_coin;
 mod zkp;
 mod zkp_types;
 
+// use frame_system::Module;
 use frame_support::codec::{Encode, Decode};
 use ark_std::vec::Vec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
@@ -241,7 +242,7 @@ decl_module! {
             for e in coin_list.iter() {
                 ensure!(
                     e.cm != cm,
-                    Error::<T>::CoinExist
+                    Error::<T>::MantaCoinExist
                 )
             }
 
@@ -263,6 +264,43 @@ decl_module! {
             PoolBalance::put(old_pool_balance + amount);
         }
 
+
+        /// Private Transfer
+        /// check the type of sn_old
+        #[weight = 0]
+        fn manta_transfer(origin,
+            merkle_root: [u8; 64],
+            sn_old: [u8; 32],
+            cm_new: [u8; 64],
+            amount: u64,
+            zkp: [u8; 196]
+        ) {
+            // check if sn_old already spent
+            let mut sn_list = SNList::get();
+            ensure!(sn_list.contains(&sn_old), <Error<T>>::MantaCoinSpent);
+            sn_list.push(sn_old);          
+
+            // update coin list
+            let mut coin_list = CoinList::get();
+            let coin_new = MantaCoin{
+                cm: cm_new,
+                value: amount,
+            };
+            coin_list.push(coin_new);
+
+            // check validity of zkp
+            // TODO: add zkp validation logic
+            // ensure!()
+            
+      
+            // TODO: revisit replay attack here
+            
+
+            // update ledger state
+            Self::deposit_event(RawEvent::PrivateTransferred(origin));
+            CoinList::put(coin_list);
+            SNList::put(sn_list);
+        }
     }
 }
 
@@ -276,7 +314,8 @@ decl_event! {
         Transferred(AccountId, AccountId, u64),
         /// The asset was minted to private
         Minted(AccountId, u64),
-
+        /// Private transfer
+        PrivateTransferred(AccountId),
     }
 }
 
@@ -295,7 +334,9 @@ decl_error! {
         /// Mint failure
         MintFail,
         /// MantaCoin exist
-        CoinExist,
+        MantaCoinExist,
+        /// MantaCoin already spend
+        MantaCoinSpent 
     }
 }
 
