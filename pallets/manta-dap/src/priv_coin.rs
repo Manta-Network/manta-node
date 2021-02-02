@@ -12,10 +12,10 @@ use ark_ff::UniformRand;
 use ark_ff::{FromBytes, ToBytes};
 use ark_groth16::create_random_proof;
 use ark_std::vec::Vec;
+use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use rand_core::CryptoRng;
 use rand_core::RngCore;
-use rand::SeedableRng;
 
 #[derive(Debug, Clone)]
 pub struct Coin {
@@ -90,8 +90,42 @@ pub fn merkle_root(payload: Vec<[u8; 64]>) -> [u64; 8] {
     let root = tree.root();
     let mut bytes = [0u8; 32];
     root.write(bytes.as_mut()).unwrap();
-    // TODO: cast bytes: [u8; 64] as [u64;8]
-    [0u64; 8]
+
+    // TODO: find a better way to implement this without std
+    let mut res = [0u64; 8];
+    res[0] = (bytes[0] as u64)
+        + ((bytes[1] as u64) << 8)
+        + ((bytes[2] as u64) << 16)
+        + ((bytes[3] as u64) << 24)
+        + ((bytes[4] as u64) << 32)
+        + ((bytes[5] as u64) << 40)
+        + ((bytes[6] as u64) << 48)
+        + ((bytes[7] as u64) << 56);
+    res[1] = (bytes[8] as u64)
+        + ((bytes[9] as u64) << 8)
+        + ((bytes[10] as u64) << 16)
+        + ((bytes[11] as u64) << 24)
+        + ((bytes[12] as u64) << 32)
+        + ((bytes[13] as u64) << 40)
+        + ((bytes[14] as u64) << 48)
+        + ((bytes[15] as u64) << 56);
+    res[2] = (bytes[16] as u64)
+        + ((bytes[17] as u64) << 8)
+        + ((bytes[18] as u64) << 16)
+        + ((bytes[19] as u64) << 24)
+        + ((bytes[20] as u64) << 32)
+        + ((bytes[21] as u64) << 40)
+        + ((bytes[22] as u64) << 48)
+        + ((bytes[23] as u64) << 56);
+    res[3] = (bytes[24] as u64)
+        + ((bytes[25] as u64) << 8)
+        + ((bytes[26] as u64) << 16)
+        + ((bytes[27] as u64) << 24)
+        + ((bytes[28] as u64) << 32)
+        + ((bytes[29] as u64) << 40)
+        + ((bytes[30] as u64) << 48)
+        + ((bytes[31] as u64) << 56);
+    res
 }
 
 impl PrivCoin for Manta {
