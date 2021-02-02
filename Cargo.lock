@@ -4110,7 +4110,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "rand 0.7.3",
- "rand_chacha 0.3.0",
+ "rand_chacha 0.2.2",
  "rand_core 0.5.1",
  "serde",
  "sp-core",

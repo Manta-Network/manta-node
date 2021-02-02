@@ -6,17 +6,16 @@ use ark_crypto_primitives::commitment::pedersen::Randomness;
 use ark_crypto_primitives::prf::Blake2s;
 use ark_crypto_primitives::prf::PRF;
 use ark_crypto_primitives::CommitmentScheme;
+use ark_crypto_primitives::FixedLengthCRH;
 use ark_ed_on_bls12_381::Fr;
 use ark_ff::UniformRand;
 use ark_ff::{FromBytes, ToBytes};
 use ark_groth16::create_random_proof;
 use ark_std::vec::Vec;
-use rand_core::RngCore;
 use rand_chacha::ChaCha20Rng;
 use rand_core::CryptoRng;
-use ark_crypto_primitives::FixedLengthCRH;
-use rand::prelude::thread_rng;
-
+use rand_core::RngCore;
+use rand::SeedableRng;
 
 #[derive(Debug, Clone)]
 pub struct Coin {
@@ -65,11 +64,10 @@ pub fn comm_decode(bytes: &[u8; 64]) -> PrivCoinCommitmentOutput {
     PrivCoinCommitmentOutput::read(bytes.as_ref()).unwrap()
 }
 
-
 pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
-    // for now the parameters is generated at random
+    // for now the parameters is generated from a fixed seed
     // FIXME: store the seed or param in the ledger
-    let mut rng = rand::thread_rng();
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
 
     let open = Randomness(Fr::read(r.as_ref()).unwrap());
@@ -77,12 +75,10 @@ pub fn comm_open(r: &[u8; 32], payload: &[u8], cm: &[u8; 64]) -> bool {
     PrivCoinCommitmentScheme::commit(&param, payload, &open).unwrap() == cm
 }
 
-
 pub fn merkle_root(payload: Vec<[u8; 64]>) -> [u64; 8] {
-    // for now the parameters is generated at random
+    // for now the parameters is generated from a fixed seed
     // FIXME: store the seed or param in the ledger
-
-    let mut rng = rand::thread_rng();
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let param = Hash::setup(&mut rng).unwrap();
 
     let leaf: Vec<PrivCoinCommitmentOutput> = payload
@@ -92,9 +88,9 @@ pub fn merkle_root(payload: Vec<[u8; 64]>) -> [u64; 8] {
 
     let tree = LedgerMerkleTree::new(param, &leaf).unwrap();
     let root = tree.root();
-    let mut bytes = [0u8;32];
+    let mut bytes = [0u8; 32];
     root.write(bytes.as_mut()).unwrap();
-    // TODO: cast bytes as [u64;8]
+    // TODO: cast bytes: [u8; 64] as [u64;8]
     [0u64; 8]
 }
 
