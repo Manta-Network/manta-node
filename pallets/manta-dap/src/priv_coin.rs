@@ -1,7 +1,6 @@
 use crate::crypto_types::*;
 use crate::zkp::TransferCircuit;
 use crate::zkp_types::*;
-use crate::PrivCoin;
 use ark_crypto_primitives::commitment::pedersen::Randomness;
 use ark_crypto_primitives::prf::Blake2s;
 use ark_crypto_primitives::prf::PRF;
@@ -16,6 +15,36 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use rand_core::CryptoRng;
 use rand_core::RngCore;
+use crate::MantaCoin;
+use crate::MantaLedgerState;
+
+pub trait PrivCoin {
+    type Address;
+    type Param;
+    type Coin;
+    type SK;
+    type Mint;
+    type Transfer;
+    type ZKProvingKey;
+
+    // Minting process does not concern any ZKP
+    fn mint<R: RngCore + CryptoRng>(
+        param: &Self::Param,
+        sk: &[u8; 32],
+        value: u32,
+        rng: &mut R,
+    ) -> (Self::Coin, Self::SK, Self::Mint);
+
+    fn transfer<R: RngCore + CryptoRng>(
+        param: &Self::Param,
+        proving_key: &Self::ZKProvingKey,
+        sender: &Self::Coin,
+        sender_sk: &Self::SK,
+        receiver: &Self::Address,
+        ledger: Vec<PrivCoinCommitmentOutput>,
+        rng: &mut R,
+    ) -> (Self::Coin, Self::Transfer);
+}
 
 #[derive(Debug, Clone)]
 pub struct Coin {
@@ -75,55 +104,58 @@ pub fn comm_open(param_seed: &[u8; 32], r: &[u8; 32], payload: &[u8], cm: &[u8; 
     PrivCoinCommitmentScheme::commit(&param, payload, &open).unwrap() == cm
 }
 
-pub fn merkle_root(param_seed: &[u8; 32], payload: Vec<[u8; 64]>) -> [u64; 8] {
+pub fn merkle_root(param_seed: &[u8; 32], payload: &[MantaCoin]) -> MantaLedgerState {
     let mut rng = ChaCha20Rng::from_seed(*param_seed);
     let param = Hash::setup(&mut rng).unwrap();
 
     let leaf: Vec<PrivCoinCommitmentOutput> = payload
         .iter()
-        .map(|x| PrivCoinCommitmentOutput::read(x.as_ref()).unwrap())
+        .map(|x| PrivCoinCommitmentOutput::read(x.cm.as_ref()).unwrap())
         .collect();
 
     let tree = LedgerMerkleTree::new(param, &leaf).unwrap();
     let root = tree.root();
-    let mut bytes = [0u8; 32];
+    let mut bytes = [0u8; 64];
     root.write(bytes.as_mut()).unwrap();
 
-    // TODO: find a better way to implement this without std
-    let mut res = [0u64; 8];
-    res[0] = (bytes[0] as u64)
-        + ((bytes[1] as u64) << 8)
-        + ((bytes[2] as u64) << 16)
-        + ((bytes[3] as u64) << 24)
-        + ((bytes[4] as u64) << 32)
-        + ((bytes[5] as u64) << 40)
-        + ((bytes[6] as u64) << 48)
-        + ((bytes[7] as u64) << 56);
-    res[1] = (bytes[8] as u64)
-        + ((bytes[9] as u64) << 8)
-        + ((bytes[10] as u64) << 16)
-        + ((bytes[11] as u64) << 24)
-        + ((bytes[12] as u64) << 32)
-        + ((bytes[13] as u64) << 40)
-        + ((bytes[14] as u64) << 48)
-        + ((bytes[15] as u64) << 56);
-    res[2] = (bytes[16] as u64)
-        + ((bytes[17] as u64) << 8)
-        + ((bytes[18] as u64) << 16)
-        + ((bytes[19] as u64) << 24)
-        + ((bytes[20] as u64) << 32)
-        + ((bytes[21] as u64) << 40)
-        + ((bytes[22] as u64) << 48)
-        + ((bytes[23] as u64) << 56);
-    res[3] = (bytes[24] as u64)
-        + ((bytes[25] as u64) << 8)
-        + ((bytes[26] as u64) << 16)
-        + ((bytes[27] as u64) << 24)
-        + ((bytes[28] as u64) << 32)
-        + ((bytes[29] as u64) << 40)
-        + ((bytes[30] as u64) << 48)
-        + ((bytes[31] as u64) << 56);
-    res
+    MantaLedgerState{
+        state: bytes
+    }
+    // // TODO: find a better way to implement this without std
+    // let mut res = [0u64; 8];
+    // res[0] = (bytes[0] as u64)
+    //     + ((bytes[1] as u64) << 8)
+    //     + ((bytes[2] as u64) << 16)
+    //     + ((bytes[3] as u64) << 24)
+    //     + ((bytes[4] as u64) << 32)
+    //     + ((bytes[5] as u64) << 40)
+    //     + ((bytes[6] as u64) << 48)
+    //     + ((bytes[7] as u64) << 56);
+    // res[1] = (bytes[8] as u64)
+    //     + ((bytes[9] as u64) << 8)
+    //     + ((bytes[10] as u64) << 16)
+    //     + ((bytes[11] as u64) << 24)
+    //     + ((bytes[12] as u64) << 32)
+    //     + ((bytes[13] as u64) << 40)
+    //     + ((bytes[14] as u64) << 48)
+    //     + ((bytes[15] as u64) << 56);
+    // res[2] = (bytes[16] as u64)
+    //     + ((bytes[17] as u64) << 8)
+    //     + ((bytes[18] as u64) << 16)
+    //     + ((bytes[19] as u64) << 24)
+    //     + ((bytes[20] as u64) << 32)
+    //     + ((bytes[21] as u64) << 40)
+    //     + ((bytes[22] as u64) << 48)
+    //     + ((bytes[23] as u64) << 56);
+    // res[3] = (bytes[24] as u64)
+    //     + ((bytes[25] as u64) << 8)
+    //     + ((bytes[26] as u64) << 16)
+    //     + ((bytes[27] as u64) << 24)
+    //     + ((bytes[28] as u64) << 32)
+    //     + ((bytes[29] as u64) << 40)
+    //     + ((bytes[30] as u64) << 48)
+    //     + ((bytes[31] as u64) << 56);
+    // res
 }
 
 impl PrivCoin for Manta {
