@@ -89,10 +89,10 @@ extern crate ark_groth16;
 extern crate ark_r1cs_std;
 extern crate ark_relations;
 extern crate ark_std;
+extern crate rand_chacha;
 // extern crate blake2;
 // extern crate ed25519_dalek;
 // extern crate rand;
-// extern crate rand_chacha;
 // extern crate rand_core;
 // extern crate sha2;
 
@@ -101,40 +101,45 @@ mod priv_coin;
 mod zkp;
 mod zkp_types;
 
+use frame_support::codec::{Encode, Decode};
 use ark_std::vec::Vec;
-use crypto_types::*;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
-use rand::RngCore;
-use rand_core::CryptoRng;
 use sp_runtime::traits::{StaticLookup, Zero};
 
-pub trait PrivCoin {
-    type Address;
-    type Param;
-    type Coin;
-    type SK;
-    type Mint;
-    type Transfer;
-    type ZKProvingKey;
 
-    // Minting process does not concern any ZKP
-    fn mint<R: RngCore + CryptoRng>(
-        param: &Self::Param,
-        sk: &[u8; 32],
-        value: u32,
-        rng: &mut R,
-    ) -> (Self::Coin, Self::SK, Self::Mint);
+/// a MantaCoin is a pair of commitment cm and ciphertext c, where
+///  * cm = com(v||k, s), commits to the value, and
+///  * c = enc(v), encrypts the value under user (receiver) public key
+/// For simplicity, the prototype does not use encryption, and store the 
+/// raw value right now. This will be changed in a later version.
+#[derive(Encode, Decode, Clone, PartialEq)]
+pub struct MantaCoin {
+    pub(crate) cm: [u8; 64],
+    pub(crate) value: u64,
+}
+impl Default for MantaCoin{
+    fn default() -> Self {
+        Self{
+            cm: [0u8; 64],
+            value: 0,
+        }
+    }
+}
 
-    fn transfer<R: RngCore + CryptoRng>(
-        param: &Self::Param,
-        proving_key: &Self::ZKProvingKey,
-        sender: &Self::Coin,
-        sender_sk: &Self::SK,
-        receiver: &Self::Address,
-        ledger: Vec<PrivCoinCommitmentOutput>,
-        rng: &mut R,
-    ) -> (Self::Coin, Self::Transfer);
+
+/// the state of the ledger is a root of the merkle tree
+/// where the leafs are the MantaCoins
+#[derive(Encode, Decode, Clone, PartialEq)]
+pub struct MantaLedgerState {
+    pub(crate) state: [u8; 64],
+}
+impl Default for MantaLedgerState{
+    fn default() -> Self {
+        Self{
+            state: [0u8; 64],
+        }
+    }
 }
 
 /// The module configuration trait.
@@ -160,12 +165,24 @@ decl_module! {
         /// # </weight>
         #[weight = 0]
         fn init(origin, total: u64) {
+
+            // for now we hard code the seeds as:
+            //  * hash parameter seed: [1u8; 32]
+            //  * commitment parameter seed: [2u8; 32]
+            // We may want to pass those two in for `init`
+            let hash_param_seed = [1u8; 32];
+            let commit_param_seed = [2u8; 32];
+
+            // todo: push the ZKP verification key to the ledger storage
+
             ensure!(!Self::is_init(), <Error<T>>::AlreadyInitialized);
             let origin = ensure_signed(origin)?;
             <Balances<T>>::insert(&origin, total);
             <TotalSupply>::put(total);
             Self::deposit_event(RawEvent::Issued(origin, total));
             Init::put(true);
+            HashParamSeed::put(hash_param_seed);
+            CommitParamSeed::put(commit_param_seed);
         }
 
         /// Move some assets from one holder to another.
@@ -198,10 +215,11 @@ decl_module! {
         /// TODO: do we need to store k and s?
         #[weight = 0]
         fn mint(origin,
-                amount: u64,
-                k: [u8; 64],
-                s: [u8;32],
-                cm: [u8; 32])  {
+            amount: u64,
+            k: [u8; 64],
+            s: [u8; 32],
+            cm: [u8; 64]
+        ) {
             // get the original balance
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
@@ -209,17 +227,38 @@ decl_module! {
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
             let origin_balance = <Balances<T>>::get(&origin_account);
             ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
+
+            // get the parameter seeds from the ledger
+            let hash_param_seed = HashParamSeed::get();
+            let commit_param_seed = CommitParamSeed::get();
+
             // check the validity of the commitment
             let payload = [amount.to_le_bytes().as_ref(), k.as_ref()].concat();
-            ensure!(priv_coin::comm_open(&s, &payload, &cm), <Error<T>>::MintFail);
-            // add to comm_list and compute new merkle root
-            let mut comm_list = CommList::get();
-            comm_list.push(cm);
-            let new_root = priv_coin::merkle_root(comm_list.clone());
-            // TODO: check cm is not in comm_list
+            ensure!(priv_coin::comm_open(&commit_param_seed, &s, &payload, &cm), <Error<T>>::MintFail);
+
+            // check cm is not in coin_list
+            let mut coin_list = CoinList::get();
+            for e in coin_list.iter() {
+                ensure!(
+                    e.cm != cm,
+                    Error::<T>::CoinExist
+                )
+            }
+
+            // add the new coin to the ledger 
+            let coin = MantaCoin {
+                cm,
+                value: amount,
+            };
+            coin_list.push(coin);
+
+            // update the merkle root
+            let new_state = priv_coin::merkle_root(&hash_param_seed, &coin_list);
+
+            // write back to ledger storage
             Self::deposit_event(RawEvent::Minted(origin, amount));
-            CommList::put(comm_list);
-            LedgerState::put(new_root);
+            CoinList::put(coin_list);
+            LedgerState::put(new_state);
             let old_pool_balance = PoolBalance::get();
             PoolBalance::put(old_pool_balance + amount);
         }
@@ -255,19 +294,10 @@ decl_error! {
         BalanceZero,
         /// Mint failure
         MintFail,
+        /// MantaCoin exist
+        CoinExist,
     }
 }
-
-// pub struct MantaData {
-//     blob: [u8;64],
-// }
-// impl Default for MantaData {
-//     fn default()->Self{
-//         MantaData{
-//             blob: [0u8;64],
-//         }
-//     }
-// }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Assets {
@@ -283,16 +313,20 @@ decl_storage! {
         /// List of sns
         pub SNList get(fn sn_list): Vec<[u8; 32]>;
 
-        /// List of commitments
-        /// should use Vec<PrivCoinCommitmentOutput>
-        /// TODO: the trait bound `Vec<ark_ec::models::twisted_edwards_extended::GroupAffine<EdwardsParameters>>: Decode` is not satisfied
-        pub CommList get(fn comm_list): Vec<[u8; 32]>;
+        /// List of Coins that has ever been created 
+        pub CoinList get(fn coin_list): Vec<MantaCoin>;
 
         /// merkle root of list of commitments
-        pub LedgerState get(fn legder_state):[u8; 32];
+        pub LedgerState get(fn legder_state): MantaLedgerState;
 
         /// the balance of minted coins
         pub PoolBalance get(fn pool_balance): u64;
+
+        /// the seed of hash parameter
+        pub HashParamSeed get(fn hash_param_seed): [u8; 32];
+
+        /// the seed of commit parameter
+        pub CommitParamSeed get(fn commit_param_seed): [u8; 32];
     }
 }
 
@@ -361,7 +395,7 @@ mod tests {
     }
     impl Trait for Test {
         type Event = ();
-        type Balance = u64;
+        // type Balance = u64;
     }
     type Assets = Module<Test>;
 
