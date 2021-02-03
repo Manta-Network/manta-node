@@ -116,12 +116,15 @@ use sp_runtime::traits::{StaticLookup, Zero};
 /// raw value right now. This will be changed in a later version.
 #[derive(Encode, Decode, Clone, PartialEq)]
 pub struct MantaCoin {
+    pub(crate) pk: [u8; 32],
     pub(crate) cm: [u8; 64],
     pub(crate) value: u64,
 }
+
 impl Default for MantaCoin {
     fn default() -> Self {
         Self {
+            pk: [0u8; 32],
             cm: [0u8; 64],
             value: 0,
         }
@@ -134,6 +137,7 @@ impl Default for MantaCoin {
 pub struct MantaLedgerState {
     pub(crate) state: [u8; 64],
 }
+
 impl Default for MantaLedgerState {
     fn default() -> Self {
         Self { state: [0u8; 64] }
@@ -223,6 +227,7 @@ decl_module! {
         #[weight = 0]
         fn mint(origin,
             amount: u64,
+            pk: [u8; 32],
             k: [u8; 64],
             s: [u8; 32],
             cm: [u8; 64]
@@ -254,6 +259,7 @@ decl_module! {
 
             // add the new coin to the ledger
             let coin = MantaCoin {
+                pk,
                 cm,
                 value: amount,
             };
@@ -276,8 +282,10 @@ decl_module! {
         #[weight = 0]
         fn manta_transfer(origin,
             merkle_root: [u8; 64],
+            pk_old: [u8; 32],
             sn_old: [u8; 32],
             k_old: [u8; 64],
+            pk_new: [u8; 32],
             k_new: [u8; 64],
             cm_new: [u8; 64],
             // todo: amount shall be an encrypted
@@ -296,6 +304,7 @@ decl_module! {
             // update coin list
             let mut coin_list = CoinList::get();
             let coin_new = MantaCoin{
+                pk: pk_new,
                 cm: cm_new,
                 // todo: amount shall be an encrypted
                 value: amount,
@@ -310,13 +319,11 @@ decl_module! {
 
             // check validity of zkp
             ensure!(
-                priv_coin::manta_verify_zkp(vk_bytes, zkp, sn_old, k_old, k_new, cm_new, state.state),
+                priv_coin::manta_verify_zkp(vk_bytes, zkp, sn_old, pk_old, k_old, k_new, cm_new, state.state),
                 <Error<T>>::ZKPFail,
             );
 
-
             // TODO: revisit replay attack here
-
 
             // update ledger state
             Self::deposit_event(RawEvent::PrivateTransferred(origin));
@@ -378,6 +385,10 @@ decl_storage! {
         /// List of sns
         pub SNList get(fn sn_list): Vec<[u8; 32]>;
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> master
         /// List of Coins that has ever been created
         pub CoinList get(fn coin_list): Vec<MantaCoin>;
 
@@ -395,6 +406,10 @@ decl_storage! {
 
         /// verification key for zero-knowledge proof
         pub ZKPVerificationKey get(fn zkp_vk): Vec<u8>;
+<<<<<<< HEAD
+=======
+
+>>>>>>> master
     }
 }
 
