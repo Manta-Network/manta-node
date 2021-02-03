@@ -1,19 +1,21 @@
-use crate::crypto_types::*;
-use crate::priv_coin::Param;
 use crate::priv_coin::*;
-use crate::zkp_types::*;
+use crate::types::*;
+use crate::MantaCoin;
+use ark_crypto_primitives::commitment::pedersen::Randomness;
 use ark_crypto_primitives::prf::blake2s::constraints::Blake2sGadget;
 use ark_crypto_primitives::prf::PRFGadget;
 use ark_crypto_primitives::CommitmentGadget;
 use ark_crypto_primitives::PathVar;
 use ark_ed_on_bls12_381::constraints::FqVar;
+use ark_ed_on_bls12_381::EdwardsProjective;
 use ark_ed_on_bls12_381::Fq;
+use ark_ed_on_bls12_381::Fr;
 use ark_ff::ToBytes;
 use ark_r1cs_std::alloc::AllocVar;
 use ark_r1cs_std::prelude::*;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::vec::Vec;
-
 // =============================
 // circuit for the following statements
 // 1. both sender's and receiver's coins are well-formed
@@ -29,11 +31,21 @@ use ark_std::vec::Vec;
 // =============================
 #[derive(Clone)]
 pub struct TransferCircuit {
-    pub param: Param,
-    pub sender: Coin,
-    pub sender_sk: CoinPrivateInfo,
-    pub receiver: Coin,
-    pub list: Vec<PrivCoinCommitmentOutput>,
+    // param
+    pub(crate) commit_param: PrivCoinCommitmentParam,
+    pub(crate) hash_param: HashParam,
+
+    // sender
+    pub(crate) sender_coin: MantaCoin,
+    pub(crate) sender_pub_info: MantaCoinPubInfo,
+    pub(crate) sender_priv_info: MantaCoinPrivInfo,
+
+    // receiver
+    pub(crate) receiver_coin: MantaCoin,
+    pub(crate) receiver_pub_info: MantaCoinPubInfo,
+
+    // ledger
+    pub(crate) list: Vec<[u8; 32]>,
 }
 
 impl ConstraintSynthesizer<Fq> for TransferCircuit {
@@ -41,41 +53,67 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
         // 1. both sender's and receiver's coins are well-formed
         //  k = com(pk||rho, r)
         //  cm = com(v||k, s)
-        token_well_formed_circuit_helper(true, &self.param.commit_param, &self.sender, cs.clone());
+
+        // parameters
+        let parameters_var = PrivCoinCommitmentParamVar::new_input(
+            ark_relations::ns!(cs, "gadget_parameters"),
+            || Ok(&self.commit_param),
+        )
+        .unwrap();
+
+        token_well_formed_circuit_helper(
+            true,
+            &parameters_var,
+            &self.sender_coin,
+            &self.sender_pub_info,
+            cs.clone(),
+        );
+
         token_well_formed_circuit_helper(
             false,
-            &self.param.commit_param,
-            &self.receiver,
+            &parameters_var,
+            &self.receiver_coin,
+            &self.receiver_pub_info,
             cs.clone(),
         );
 
         // 2. address and the secret key derives public key
         //  sender.pk = PRF(sender_sk, [0u8;32])
         //  sender.sn = PRF(sender_sk, rho)
-        prf_circuit_helper(&self.sender_sk.sk, &[0u8; 32], &self.sender.pk, cs.clone());
-        prf_circuit_helper(&self.sender_sk.sk, &self.sender.rho, &self.sender_sk.sn, cs.clone());
-      
+        prf_circuit_helper(
+            &self.sender_priv_info.sk,
+            &[0u8; 32],
+            &self.sender_coin.pk,
+            cs.clone(),
+        );
+        prf_circuit_helper(
+            &self.sender_priv_info.sk,
+            &self.sender_pub_info.rho,
+            &self.sender_priv_info.sn,
+            cs.clone(),
+        );
 
         // // 3. sender's commitment is in List_all
         // merkle_membership_circuit_proof(
-        //     &self.param.hash_param,
-        //     &self.sender.cm,
+        //     &self.hash_param,
+        //     &self.sender_coin.cm,
         //     &self.list,
         //     cs.clone(),
         // );
 
         // 4. sender's and receiver's value are the same
-        let sender_value_fq = Fq::from(self.sender.value);
+        let sender_value_fq = Fq::from(self.sender_coin.value);
         let sender_value_var = FqVar::new_witness(ark_relations::ns!(cs, "sender value"), || {
             Ok(&sender_value_fq)
         })
         .unwrap();
 
-        let receiver_value_fq = Fq::from(self.receiver.value);
-        let receiver_value_var = FqVar::new_witness(ark_relations::ns!(cs, "sender value"), || {
-            Ok(&receiver_value_fq)
-        })
-        .unwrap();
+        let receiver_value_fq = Fq::from(self.receiver_coin.value);
+        let receiver_value_var =
+            FqVar::new_witness(ark_relations::ns!(cs, "receiver value"), || {
+                Ok(&receiver_value_fq)
+            })
+            .unwrap();
 
         sender_value_var.enforce_equal(&receiver_value_var).unwrap();
 
@@ -91,80 +129,84 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
 // =============================
 fn token_well_formed_circuit_helper(
     is_sender: bool,
-    param: &PrivCoinCommitmentParam,
-    coin: &Coin,
+    parameters_var: &PrivCoinCommitmentParamVar,
+    coin: &MantaCoin,
+    pub_info: &MantaCoinPubInfo,
     cs: ConstraintSystemRef<Fq>,
 ) {
-    // parameters
-    let parameters_var =
-        PrivCoinCommitmentParamVar::new_input(ark_relations::ns!(cs, "gadget_parameters"), || {
-            Ok(param)
-        })
-        .unwrap();
-
     // =============================
     // statement 1: k = com(pk||rho, r)
     // =============================
-    let input: Vec<u8> = [coin.pk, coin.rho].concat();
+    let input: Vec<u8> = [coin.pk.as_ref(), pub_info.rho.as_ref()].concat();
     let mut input_var = Vec::new();
     for byte in &input {
         input_var.push(UInt8::new_witness(cs.clone(), || Ok(*byte)).unwrap());
     }
 
     // openning
+    let r = Fr::deserialize(pub_info.r.as_ref()).unwrap();
+    let r = Randomness::<EdwardsProjective>(r);
     let randomness_var =
         PrivCoinCommitmentOpenVar::new_witness(ark_relations::ns!(cs, "gadget_randomness"), || {
-            Ok(&coin.r)
+            Ok(&r)
         })
         .unwrap();
 
     // commitment
     let result_var =
         PrivCoinCommitmentSchemeVar::commit(&parameters_var, &input_var, &randomness_var).unwrap();
-    // circuit to compare the commited value with supplied value
-    let commitment_var2 =
-        PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
-            Ok(coin.k)
-        })
-        .unwrap();
-    result_var.enforce_equal(&commitment_var2).unwrap();
+
+    // // circuit to compare the commited value with supplied value
+    // let k = PrivCoinCommitmentOutput::deserialize(pub_info.k.as_ref()).unwrap();
+    // let commitment_var2 =
+    //     PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
+    //         Ok(&k)
+    //     })
+    //     .unwrap();
+    // result_var.enforce_equal(&commitment_var2).unwrap();
 
     // =============================
     // statement 2: cm = com(v||k, s)
     // =============================
     let mut input: Vec<u8> = coin.value.to_le_bytes().to_vec();
-    coin.k.write(&mut input).unwrap();
+    pub_info.k.serialize(&mut input).unwrap();
     let mut input_var = Vec::new();
     for byte in &input {
         input_var.push(UInt8::new_witness(cs.clone(), || Ok(*byte)).unwrap());
     }
 
     // openning
+    let s = Randomness::<EdwardsProjective>(Fr::deserialize(pub_info.s.as_ref()).unwrap());
     let randomness_var =
         PrivCoinCommitmentOpenVar::new_witness(ark_relations::ns!(cs, "gadget_randomness"), || {
-            Ok(&coin.s)
+            Ok(&s)
         })
         .unwrap();
 
     // commitment
-    let result_var =
+    let result_var: PrivCoinCommitmentOutputVar =
         PrivCoinCommitmentSchemeVar::commit(&parameters_var, &input_var, &randomness_var).unwrap();
-    // circuit to compare the commited value with supplied value
-    // if the commitment is from the sender, then the commitment is hidden
-    // else, it is public
-    let commitment_var2 = if is_sender {
-        PrivCoinCommitmentOutputVar::new_witness(
-            ark_relations::ns!(cs, "gadget_commitment"),
-            || Ok(coin.cm),
-        )
-        .unwrap()
-    } else {
-        PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
-            Ok(coin.cm)
-        })
-        .unwrap()
-    };
-    result_var.enforce_equal(&commitment_var2).unwrap();
+
+    // the other commitment
+    let cm: PrivCoinCommitmentOutput =
+        PrivCoinCommitmentOutput::deserialize(coin.cm_bytes.as_ref()).unwrap();
+    // // if the commitment is from the sender, then the commitment is hidden
+    // // else, it is public
+    // let commitment_var2 = if is_sender {
+    //     PrivCoinCommitmentOutputVar::new_witness(
+    //         ark_relations::ns!(cs, "gadget_commitment"),
+    //         || Ok(&cm),
+    //     )
+    //     .unwrap()
+    // } else {
+    //     PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
+    //         Ok(&cm)
+    //     })
+    //     .unwrap()
+    // };
+
+    // // circuit to compare the commited value with supplied value
+    // result_var.enforce_equal(&commitment_var2).unwrap();
 }
 
 fn prf_circuit_helper(
@@ -225,7 +267,7 @@ fn merkle_membership_circuit_proof(
     // FIXME: account commitment is already a hashed element
     // we should use it directly, rather than serialize it again
     let mut buf: Vec<u8> = Vec::new();
-    cm.write(&mut buf).unwrap();
+    cm.serialize(&mut buf).unwrap();
 
     let leaf_g = UInt8::constant_vec(&buf);
     let leaf_g: &[_] = leaf_g.as_slice();
