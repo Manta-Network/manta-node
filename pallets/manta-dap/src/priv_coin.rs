@@ -60,7 +60,7 @@ pub fn merkle_root(param_seed: &[u8; 32], payload: &[MantaCoin]) -> MantaLedgerS
     MantaLedgerState { state: bytes }
 }
 
-pub fn manta_zkp_vk_gen(commit_param_seed: &[u8; 32], hash_param_seed: &[u8; 32]) -> Vec<u8> {
+pub fn manta_zkp_key_gen(hash_param_seed: &[u8; 32], commit_param_seed: &[u8; 32]) -> Vec<u8> {
     // rebuild the parameters from the inputs
     let mut rng = ChaCha20Rng::from_seed(*commit_param_seed);
     let commit_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
@@ -68,7 +68,7 @@ pub fn manta_zkp_vk_gen(commit_param_seed: &[u8; 32], hash_param_seed: &[u8; 32]
     let mut rng = ChaCha20Rng::from_seed(*hash_param_seed);
     let hash_param = Hash::setup(&mut rng).unwrap();
 
-    // we build a moke ledger of 128 users with a default seed [3; 32]
+    // we build a mock ledger of 128 users with a default seed [3; 32]
     let mut rng = ChaCha20Rng::from_seed([3; 32]);
     let mut coins = Vec::new();
     let mut pub_infos = Vec::new();
@@ -122,46 +122,51 @@ pub fn manta_zkp_vk_gen(commit_param_seed: &[u8; 32], hash_param_seed: &[u8; 32]
         .unwrap();
     assert!(sanity_cs.is_satisfied().unwrap());
 
-    let pk = generate_random_parameters::<Bls12_381, _, _>(circuit.clone(), &mut rng).unwrap();
-    let vk: Groth16VK = pk.vk;
-    let mut vk_bytes: Vec<u8> = Vec::new();
+    let pk = generate_random_parameters::<Bls12_381, _, _>(circuit, &mut rng).unwrap();
+    let mut pk_bytes: Vec<u8> = Vec::new();
 
-    vk.serialize(&mut vk_bytes).unwrap();
-    vk_bytes
+    pk.serialize(&mut pk_bytes).unwrap();
+    pk_bytes
 }
 
 pub fn manta_verify_zkp(
-    vk_bytes: Vec<u8>,
+    key_bytes: Vec<u8>,
     proof: [u8; 196],
     sn_old: [u8; 32],
-    pk_old: [u8; 32],
     k_old: [u8; 32],
     k_new: [u8; 32],
     cm_new: [u8; 32],
-    merkle_root: [u8; 32],
+    _merkle_root: [u8; 32],
 ) -> bool {
-    let vk = Groth16VK::deserialize(vk_bytes.as_ref()).unwrap();
-    let pvk = Groth16PVK::from(vk);
+    let pk = Groth16PK::deserialize(key_bytes.as_ref()).unwrap();
+    let pvk = Groth16PVK::from(pk.vk);
     let proof = Groth16Proof::deserialize(proof.as_ref()).unwrap();
     let k_old = PrivCoinCommitmentOutput::deserialize(k_old.as_ref()).unwrap();
     let k_new = PrivCoinCommitmentOutput::deserialize(k_new.as_ref()).unwrap();
     let cm_new = PrivCoinCommitmentOutput::deserialize(cm_new.as_ref()).unwrap();
-    let _merkle_root = HashOutput::deserialize(merkle_root.as_ref()).unwrap();
-    let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
 
-    for e in pk_old.iter() {
-        let mut f = *e;
-        for _ in 0..8 {
-            inputs.push((f & 0b1).into());
-            f = f >> 1;
-        }
-    }
+    // let _merkle_root = HashOutput::deserialize(merkle_root.as_ref()).unwrap();
+
+    // let inputs = [k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
+
+
+    let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
+    // let mut inputs = Vec::new();
+    // for e in pk_old.iter() {
+    //     let mut f = *e;
+    //     for _ in 0..8 {
+    //         inputs.push((f & 0b1).into());
+    //         f = f >> 1;
+    //     }
+    // }
+
 
     for e in sn_old.iter() {
         let mut f = *e;
         for _ in 0..8 {
             inputs.push((f & 0b1).into());
-            f = f >> 1;
+            f >>= 1;
+
         }
     }
 
@@ -221,12 +226,9 @@ pub fn make_coin<R: RngCore + CryptoRng>(
     let mut cm_bytes = [0u8; 32];
     cm.serialize(cm_bytes.as_mut()).unwrap();
 
-    let coin = MantaCoin {
-        pk,
-        cm_bytes,
-        value,
-    };
+    let coin = MantaCoin { cm_bytes, value };
     let pub_info = MantaCoinPubInfo {
+        pk,
         rho,
         s: s_bytes,
         r: r_bytes,
