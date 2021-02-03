@@ -1030,6 +1030,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "client"
+version = "0.1.0"
+dependencies = [
+ "ark-bls12-381",
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ed-on-bls12-381",
+ "ark-ff",
+ "ark-groth16",
+ "ark-r1cs-std",
+ "ark-relations",
+ "ark-std",
+ "blake2 0.8.1",
+ "data-encoding",
+ "ed25519-dalek",
+ "pallet-manta-dap",
+ "rand 0.7.3",
+ "rand_chacha 0.2.2",
+ "rand_core 0.5.1",
+ "sha2 0.9.3",
+ "structopt",
+]
+
+[[package]]
 name = "cloudabi"
 version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

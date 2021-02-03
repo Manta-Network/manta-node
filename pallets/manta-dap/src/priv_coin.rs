@@ -25,7 +25,6 @@ use rand_core::RngCore;
 #[allow(dead_code)]
 pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 32] {
     let mut res = [0u8; 32];
-
     cm.serialize(res.as_mut()).unwrap();
     res
 }
@@ -145,9 +144,11 @@ pub fn manta_verify_zkp(
     let k_old = PrivCoinCommitmentOutput::deserialize(k_old.as_ref()).unwrap();
     let k_new = PrivCoinCommitmentOutput::deserialize(k_new.as_ref()).unwrap();
     let cm_new = PrivCoinCommitmentOutput::deserialize(cm_new.as_ref()).unwrap();
+
     // let _merkle_root = HashOutput::deserialize(merkle_root.as_ref()).unwrap();
 
     // let inputs = [k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
+
 
     let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
     // let mut inputs = Vec::new();
@@ -159,11 +160,13 @@ pub fn manta_verify_zkp(
     //     }
     // }
 
+
     for e in sn_old.iter() {
         let mut f = *e;
         for _ in 0..8 {
             inputs.push((f & 0b1).into());
             f >>= 1;
+
         }
     }
 

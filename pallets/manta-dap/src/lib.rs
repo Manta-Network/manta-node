@@ -97,9 +97,10 @@ extern crate rand_chacha;
 // extern crate rand_core;
 // extern crate sha2;
 
-mod priv_coin;
-mod types;
-mod zkp;
+pub mod dap_setup;
+pub mod priv_coin;
+pub mod types;
+pub mod zkp;
 
 // use frame_system::Module;
 use crate::types::*;
@@ -282,9 +283,7 @@ decl_module! {
                 <Error<T>>::ZKPFail,
             );
 
-
             // TODO: revisit replay attack here
-
 
             // update ledger state
             Self::deposit_event(RawEvent::PrivateTransferred(origin));
