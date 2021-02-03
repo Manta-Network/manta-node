@@ -275,6 +275,10 @@ decl_module! {
             amount: u64,
             zkp: [u8; 196]
         ) {
+
+            ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
+            let origin = ensure_signed(origin)?;
+
             // check if sn_old already spent
             let mut sn_list = SNList::get();
             ensure!(sn_list.contains(&sn_old), <Error<T>>::MantaCoinSpent);
