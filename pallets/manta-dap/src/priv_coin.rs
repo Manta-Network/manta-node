@@ -3,16 +3,13 @@ use crate::zkp::TransferCircuit;
 use crate::MantaCoin;
 use crate::MantaLedgerState;
 use ark_bls12_381::Bls12_381;
+use ark_crypto_primitives::commitment;
 use ark_crypto_primitives::commitment::pedersen::Randomness;
-use ark_crypto_primitives::prf::Blake2s;
-use ark_crypto_primitives::prf::PRF;
 use ark_crypto_primitives::CommitmentScheme;
 use ark_crypto_primitives::FixedLengthCRH;
 use ark_ed_on_bls12_381::Fq;
 use ark_ed_on_bls12_381::Fr;
 use ark_ff::UniformRand;
-use ark_ff::{FromBytes, ToBytes};
-use ark_groth16::create_random_proof;
 use ark_groth16::{generate_random_parameters, verify_proof};
 use ark_relations::r1cs::ConstraintSynthesizer;
 use ark_relations::r1cs::ConstraintSystem;
@@ -22,8 +19,8 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use rand_core::CryptoRng;
 use rand_core::RngCore;
-
-// pub struct Manta;
+// use ark_crypto_primitives::prf::Blake2s;
+// use ark_crypto_primitives::prf::PRF;
 
 #[allow(dead_code)]
 pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 32] {
@@ -183,11 +180,24 @@ pub fn make_coin<R: RngCore + CryptoRng>(
     let mut rho = [0u8; 32];
     rng.fill_bytes(&mut rho);
 
+    // =============================
+    // the follwoing code uses blake2s as an PRF
+    // we are using it as a commitment scheme for now
+    // // pk = PRF(sk, 0); which is also the address
+    // let pk = <Blake2s as PRF>::evaluate(&sk, &[0u8; 32]).unwrap();
+
+    // // sn = PRF(sk, rho)
+    // let sn = <Blake2s as PRF>::evaluate(&sk, &rho).unwrap();
+    // =============================
+
     // pk = PRF(sk, 0); which is also the address
-    let pk = <Blake2s as PRF>::evaluate(&sk, &[0u8; 32]).unwrap();
+    let param = ();
+    let pk = <commitment::blake2s::Commitment as CommitmentScheme>::commit(&param, &[0u8; 32], &sk)
+        .unwrap();
 
     // sn = PRF(sk, rho)
-    let sn = <Blake2s as PRF>::evaluate(&sk, &rho).unwrap();
+    let sn =
+        <commitment::blake2s::Commitment as CommitmentScheme>::commit(&param, &rho, &sk).unwrap();
 
     // k = com(pk||rho, r)
     let buf = [pk, rho].concat();

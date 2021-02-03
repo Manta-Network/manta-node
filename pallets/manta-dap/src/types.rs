@@ -7,7 +7,6 @@ use ark_crypto_primitives::crh::FixedLengthCRH;
 use ark_crypto_primitives::merkle_tree::Config;
 use ark_crypto_primitives::merkle_tree::Digest;
 use ark_crypto_primitives::merkle_tree::Path;
-use ark_crypto_primitives::prf::Blake2s;
 use ark_crypto_primitives::CommitmentScheme;
 use ark_crypto_primitives::MerkleTree;
 use ark_crypto_primitives::SNARK;
@@ -102,6 +101,7 @@ pub type PrivCoinAccountMembership = Path<MerkleTreeParams>;
 //=======================
 pub type PrivCoinCommitmentScheme = Commitment<EdwardsProjective, PedersenWindow>;
 pub type PrivCoinCommitmentParam = <PrivCoinCommitmentScheme as CommitmentScheme>::Parameters;
+#[allow(dead_code)]
 pub type PrivCoinCommitmentOpen = <PrivCoinCommitmentScheme as CommitmentScheme>::Randomness;
 pub type PrivCoinCommitmentOutput = <PrivCoinCommitmentScheme as CommitmentScheme>::Output;
 
