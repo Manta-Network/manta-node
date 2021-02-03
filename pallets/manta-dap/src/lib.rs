@@ -148,8 +148,8 @@ decl_module! {
             // note: for prototype, we use this function to generate the ZKP verification key
             // for product we should use a MPC protocol to build the ZKP verification key
             // and then depoly that vk
-            let zkp_vk = priv_coin::manta_zkp_vk_gen(&hash_param_seed, &commit_param_seed);
-            ZKPVerificationKey::put(zkp_vk);
+            let zkp_key = priv_coin::manta_zkp_key_gen(&hash_param_seed, &commit_param_seed);
+            ZKPKey::put(zkp_key);
 
 
             <Balances<T>>::insert(&origin, total);
@@ -192,7 +192,6 @@ decl_module! {
         #[weight = 0]
         fn mint(origin,
             amount: u64,
-            pk: [u8; 32],
             k: [u8; 32],
             s: [u8; 32],
             cm: [u8; 32]
@@ -224,7 +223,6 @@ decl_module! {
 
             // add the new coin to the ledger
             let coin = MantaCoin {
-                pk,
                 cm_bytes: cm,
                 value: amount,
             };
@@ -247,15 +245,13 @@ decl_module! {
         #[weight = 0]
         fn manta_transfer(origin,
             merkle_root: [u8; 32],
-            pk_old: [u8; 32],
             sn_old: [u8; 32],
             k_old: [u8; 32],
-            pk_new: [u8; 32],
             k_new: [u8; 32],
             cm_new: [u8; 32],
             // todo: amount shall be an encrypted
             amount: u64,
-            zkp: [u8; 196]
+            proof: [u8; 196]
         ) {
 
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
@@ -263,13 +259,12 @@ decl_module! {
 
             // check if sn_old already spent
             let mut sn_list = SNList::get();
-            ensure!(sn_list.contains(&sn_old), <Error<T>>::MantaCoinSpent);
+            ensure!(!sn_list.contains(&sn_old), <Error<T>>::MantaCoinSpent);
             sn_list.push(sn_old);
 
             // update coin list
             let mut coin_list = CoinList::get();
             let coin_new = MantaCoin{
-                pk: pk_new,
                 cm_bytes: cm_new,
                 // todo: amount shall be an encrypted
                 value: amount,
@@ -277,14 +272,14 @@ decl_module! {
             coin_list.push(coin_new);
 
             // get the verification key from the ledger
-            let vk_bytes = ZKPVerificationKey::get();
+            let key_bytes = ZKPKey::get();
 
             // get the ledger state from the ledger
             let state = LedgerState::get();
 
             // check validity of zkp
             ensure!(
-                priv_coin::manta_verify_zkp(vk_bytes, zkp, sn_old, pk_old, k_old, k_new, cm_new, state.state),
+                priv_coin::manta_verify_zkp(key_bytes, proof, sn_old, k_old, k_new, cm_new, state.state),
                 <Error<T>>::ZKPFail,
             );
 
@@ -366,7 +361,13 @@ decl_storage! {
         pub CommitParamSeed get(fn commit_param_seed): [u8; 32];
 
         /// verification key for zero-knowledge proof
-        pub ZKPVerificationKey get(fn zkp_vk): Vec<u8>;
+        /// at the moment we are storing the whole serialized key
+        /// in the blockchain storage. this incurrs a significant
+        /// cost of deserialization, during verification.
+        /// alternatives to be decided later:
+        ///     1. hard code the parameters in the code
+        ///     2. store deserialized keys
+        pub ZKPKey get(fn zkp_vk): Vec<u8>;
 
     }
 }
@@ -384,10 +385,20 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::zkp::TransferCircuit;
+    use ark_crypto_primitives::CommitmentScheme;
+    use ark_crypto_primitives::FixedLengthCRH;
+    use ark_ed_on_bls12_381::Fq;
+    use ark_groth16::create_random_proof;
+    use ark_relations::r1cs::ConstraintSynthesizer;
+    use ark_relations::r1cs::ConstraintSystem;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use frame_support::{
         assert_noop, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
     };
+    use rand::RngCore;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha20Rng;
     use sp_core::H256;
     use sp_runtime::{
         testing::Header,
@@ -445,6 +456,143 @@ mod tests {
             .build_storage::<Test>()
             .unwrap()
             .into()
+    }
+
+    #[test]
+    fn test_constants_should_work() {
+        new_test_ext().execute_with(|| {
+            assert_ok!(Assets::init(Origin::signed(1), 100));
+            assert_eq!(Assets::balance(1), 100);
+            let com_param_seed = CommitParamSeed::get();
+            let hash_param_seed = HashParamSeed::get();
+            assert_eq!(com_param_seed, [2u8; 32]);
+            assert_eq!(hash_param_seed, [1u8; 32]);
+        });
+    }
+
+    #[test]
+    fn test_mint_should_work() {
+        new_test_ext().execute_with(|| {
+            assert_ok!(Assets::init(Origin::signed(1), 1000));
+            assert_eq!(Assets::balance(1), 1000);
+            assert_eq!(PoolBalance::get(), 0);
+            let com_param_seed = CommitParamSeed::get();
+            let mut rng = ChaCha20Rng::from_seed(com_param_seed);
+            let com_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
+
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+            let mut sk = [0u8; 32];
+            rng.fill_bytes(&mut sk);
+            let (coin, pub_info, _priv_info) = priv_coin::make_coin(&com_param, sk, 10, &mut rng);
+            assert_ok!(Assets::mint(
+                Origin::signed(1),
+                10,
+                pub_info.k,
+                pub_info.s,
+                coin.cm_bytes
+            ));
+
+            assert_eq!(TotalSupply::get(), 1000);
+            assert_eq!(PoolBalance::get(), 10);
+            let coin_list = CoinList::get();
+            assert_eq!(coin_list.len(), 1);
+            assert_eq!(coin_list[0], coin);
+            let sn_list = SNList::get();
+            assert_eq!(sn_list.len(), 0);
+        });
+    }
+
+    #[test]
+    fn test_transfer_should_work() {
+        new_test_ext().execute_with(|| {
+            assert_ok!(Assets::init(Origin::signed(1), 1000));
+            assert_eq!(Assets::balance(1), 1000);
+            assert_eq!(PoolBalance::get(), 0);
+            let com_param_seed = CommitParamSeed::get();
+            let mut rng = ChaCha20Rng::from_seed(com_param_seed);
+            let com_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
+
+            let hash_param_seed = HashParamSeed::get();
+            let mut rng = ChaCha20Rng::from_seed(hash_param_seed);
+            let hash_param = Hash::setup(&mut rng).unwrap();
+
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+            // mint a sender token
+            let mut sk = [0u8; 32];
+            rng.fill_bytes(&mut sk);
+            let (sender, sender_pub_info, sender_priv_info) =
+                priv_coin::make_coin(&com_param, sk, 10, &mut rng);
+            assert_ok!(Assets::mint(
+                Origin::signed(1),
+                10,
+                sender_pub_info.k,
+                sender_pub_info.s,
+                sender.cm_bytes
+            ));
+
+            assert_eq!(PoolBalance::get(), 10);
+            let coin_list = CoinList::get();
+            assert_eq!(coin_list.len(), 1);
+            assert_eq!(coin_list[0], sender);
+            let sn_list = SNList::get();
+            assert_eq!(sn_list.len(), 0);
+
+            // build a receiver
+            rng.fill_bytes(&mut sk);
+            let (receiver, receiver_pub_info, _receiver_priv_info) =
+                priv_coin::make_coin(&com_param, sk, 10, &mut rng);
+
+            // generate ZKP
+            let circuit = TransferCircuit {
+                commit_param: com_param,
+                hash_param,
+                sender_coin: sender.clone(),
+                sender_pub_info: sender_pub_info.clone(),
+                sender_priv_info: sender_priv_info.clone(),
+                receiver_coin: receiver.clone(),
+                receiver_pub_info: receiver_pub_info.clone(),
+                list: Vec::new(),
+            };
+
+            let sanity_cs = ConstraintSystem::<Fq>::new_ref();
+            circuit
+                .clone()
+                .generate_constraints(sanity_cs.clone())
+                .unwrap();
+            assert!(sanity_cs.is_satisfied().unwrap());
+
+            let proving_key_bytes = ZKPKey::get();
+            let proving_key = Groth16PK::deserialize(proving_key_bytes.as_ref()).unwrap();
+            let proof = create_random_proof(circuit, &proving_key, &mut rng).unwrap();
+            let mut proof_bytes = [0u8; 196];
+            proof.serialize(proof_bytes.as_mut()).unwrap();
+
+            // make the transfer
+            assert_ok!(Assets::manta_transfer(
+                Origin::signed(1),
+                [0u8; 32],
+                sender_priv_info.sn,
+                sender_pub_info.k,
+                receiver_pub_info.k,
+                receiver.cm_bytes,
+                10,
+                proof_bytes,
+            ));
+
+            // check the resulting status of the ledger storage
+
+            assert_eq!(TotalSupply::get(), 1000);
+            assert_eq!(PoolBalance::get(), 10);
+            let coin_list = CoinList::get();
+            assert_eq!(coin_list.len(), 2);
+            assert_eq!(coin_list[0], sender);
+            assert_eq!(coin_list[1], receiver);
+            let sn_list = SNList::get();
+            assert_eq!(sn_list.len(), 1);
+            assert_eq!(sn_list[0], sender_priv_info.sn);
+
+            // todo: check the ledger state is correctly updated
+        });
     }
 
     #[test]
