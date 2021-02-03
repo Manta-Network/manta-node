@@ -182,8 +182,7 @@ fn token_well_formed_circuit_helper(
     // =============================
     // statement 2: cm = com(v||k, s)
     // =============================
-    let mut input: Vec<u8> = coin.value.to_le_bytes().to_vec();
-    pub_info.k.serialize(&mut input).unwrap();
+    let input: Vec<u8> = [coin.value.to_le_bytes().as_ref(), pub_info.k.as_ref()].concat();
     let mut input_var = Vec::new();
     for byte in &input {
         input_var.push(UInt8::new_witness(cs.clone(), || Ok(*byte)).unwrap());
