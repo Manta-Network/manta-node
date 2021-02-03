@@ -98,6 +98,7 @@ extern crate rand_chacha;
 // extern crate sha2;
 
 pub mod crypto_types;
+pub mod dap_setup;
 pub mod priv_coin;
 pub mod zkp;
 pub mod zkp_types;

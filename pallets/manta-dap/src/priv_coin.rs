@@ -211,15 +211,8 @@ pub fn manta_verify_zkp(
     let k_new = PrivCoinCommitmentOutput::read(k_new.as_ref()).unwrap();
     let cm_new = PrivCoinCommitmentOutput::read(cm_new.as_ref()).unwrap();
     let _merkle_root = HashOutput::read(merkle_root.as_ref()).unwrap();
-    
-    let mut inputs = [
-        k_old.x,
-        k_old.y,
-        k_new.x,
-        k_new.y,
-        cm_new.x,
-        cm_new.y,
-    ].to_vec();
+
+    let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
 
     for e in sn_old.iter() {
         let mut f = *e;

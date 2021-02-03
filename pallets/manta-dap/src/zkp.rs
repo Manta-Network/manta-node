@@ -53,8 +53,12 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
         //  sender.pk = PRF(sender_sk, [0u8;32])
         //  sender.sn = PRF(sender_sk, rho)
         prf_circuit_helper(&self.sender_sk.sk, &[0u8; 32], &self.sender.pk, cs.clone());
-        prf_circuit_helper(&self.sender_sk.sk, &self.sender.rho, &self.sender_sk.sn, cs.clone());
-      
+        prf_circuit_helper(
+            &self.sender_sk.sk,
+            &self.sender.rho,
+            &self.sender_sk.sn,
+            cs.clone(),
+        );
 
         // // 3. sender's commitment is in List_all
         // merkle_membership_circuit_proof(
