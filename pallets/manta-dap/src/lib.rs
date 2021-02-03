@@ -262,7 +262,7 @@ decl_module! {
 
             // check if sn_old already spent
             let mut sn_list = SNList::get();
-            ensure!(sn_list.contains(&sn_old), <Error<T>>::MantaCoinSpent);
+            ensure!(!sn_list.contains(&sn_old), <Error<T>>::MantaCoinSpent);
             sn_list.push(sn_old);
 
             // update coin list
