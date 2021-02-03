@@ -477,5 +477,4 @@ fn test_zkp_interface() {
         receiver.cm_bytes,
         [0u8; 32],
     ));
-
 }

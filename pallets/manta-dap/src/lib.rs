@@ -479,7 +479,7 @@ mod tests {
             let com_param_seed = CommitParamSeed::get();
             let mut rng = ChaCha20Rng::from_seed(com_param_seed);
             let com_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
-           
+
             let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
             let mut sk = [0u8; 32];
             rng.fill_bytes(&mut sk);
@@ -505,14 +505,14 @@ mod tests {
 
     #[test]
     fn test_transfer_should_work() {
+        use crate::zkp::TransferCircuit;
         use ark_crypto_primitives::CommitmentScheme;
         use ark_crypto_primitives::FixedLengthCRH;
+        use ark_groth16::create_random_proof;
+        use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
         use rand::RngCore;
         use rand::SeedableRng;
-        use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-        use crate::zkp::TransferCircuit;
         use rand_chacha::ChaCha20Rng;
-        use ark_groth16::create_random_proof;
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::init(Origin::signed(1), 1000));
             assert_eq!(Assets::balance(1), 100);
@@ -520,7 +520,7 @@ mod tests {
             let com_param_seed = CommitParamSeed::get();
             let mut rng = ChaCha20Rng::from_seed(com_param_seed);
             let com_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
-        
+
             let hash_param_seed = HashParamSeed::get();
             let mut rng = ChaCha20Rng::from_seed(hash_param_seed);
             let hash_param = Hash::setup(&mut rng).unwrap();
@@ -529,7 +529,8 @@ mod tests {
             // mint a sender token
             let mut sk = [0u8; 32];
             rng.fill_bytes(&mut sk);
-            let (sender, sender_pub_info, sender_priv_info) = priv_coin::make_coin(&com_param, sk, 100, &mut rng);
+            let (sender, sender_pub_info, sender_priv_info) =
+                priv_coin::make_coin(&com_param, sk, 100, &mut rng);
             assert_ok!(Assets::mint(
                 Origin::signed(1),
                 10,
@@ -548,7 +549,8 @@ mod tests {
 
             // build a receiver
             rng.fill_bytes(&mut sk);
-            let (receiver, receiver_pub_info, _receiver_priv_info) = priv_coin::make_coin(&com_param, sk, 10, &mut rng);
+            let (receiver, receiver_pub_info, _receiver_priv_info) =
+                priv_coin::make_coin(&com_param, sk, 10, &mut rng);
 
             // generate ZKP
             let circuit = TransferCircuit {
