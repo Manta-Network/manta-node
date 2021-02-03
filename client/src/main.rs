@@ -22,7 +22,7 @@ struct Cli {
 /// Generate manta (sk, pk) pair
 fn manta_keygen(seed: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
     // get an rng from seed
-    let mut rng = ChaCha20Rng::from_seed([3; 32]);
+    let mut rng = ChaCha20Rng::from_seed(*seed);
     // sample a random sk
     let mut sk = [0u8; 32];
     rng.fill_bytes(&mut sk);
