@@ -385,10 +385,7 @@ decl_storage! {
         /// List of sns
         pub SNList get(fn sn_list): Vec<[u8; 32]>;
 
-<<<<<<< HEAD
-=======
 
->>>>>>> master
         /// List of Coins that has ever been created
         pub CoinList get(fn coin_list): Vec<MantaCoin>;
 
@@ -406,10 +403,7 @@ decl_storage! {
 
         /// verification key for zero-knowledge proof
         pub ZKPVerificationKey get(fn zkp_vk): Vec<u8>;
-<<<<<<< HEAD
-=======
 
->>>>>>> master
     }
 }
 
