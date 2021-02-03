@@ -1,0 +1,25 @@
+[package]
+name = "client"
+version = "0.1.0"
+authors = ["Manta Network <contact@manta.network>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ed25519-dalek = "1"
+rand = "0.7"
+rand_core = "0.5"
+sha2 = "0.9"
+rand_chacha = "0.2.2"
+ark-ed-on-bls12-381 = { version = "0.1.0", git = "https://github.com/arkworks-rs/curves/", default-features = false, features = [ "r1cs" ] }
+ark-bls12-381 = { version = "0.1.0", git = "https://github.com/arkworks-rs/curves/", default-features = false, features = [ "curve" ] }
+ark-crypto-primitives = { version = "0.1.0", git = "https://github.com/arkworks-rs/crypto-primitives.git", branch = "main", default-features = false, features = [ "r1cs" ] }
+blake2 = { version = "0.8", default-features = false }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra", default-features = false }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra", default-features = false }
+ark-std = { git = "https://github.com/arkworks-rs/utils", default-features = false }
+ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", default-features = false, features = [ "r1cs" ] }
+ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std", default-features = false }
+ark-relations = { git = "https://github.com/arkworks-rs/snark", default-features = false }
+pallet-manta-dap = { path = "../pallets/manta-dap"}

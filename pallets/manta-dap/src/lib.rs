@@ -97,10 +97,10 @@ extern crate rand_chacha;
 // extern crate rand_core;
 // extern crate sha2;
 
-mod crypto_types;
-mod priv_coin;
-mod zkp;
-mod zkp_types;
+pub mod crypto_types;
+pub mod priv_coin;
+pub mod zkp;
+pub mod zkp_types;
 
 // use frame_system::Module;
 use ark_std::vec::Vec;
