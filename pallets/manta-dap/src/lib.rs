@@ -147,8 +147,8 @@ decl_module! {
             // note: for prototype, we use this function to generate the ZKP verification key
             // for product we should use a MPC protocol to build the ZKP verification key
             // and then depoly that vk
-            let zkp_vk = priv_coin::manta_zkp_vk_gen(&hash_param_seed, &commit_param_seed);
-            ZKPVerificationKey::put(zkp_vk);
+            let zkp_key = priv_coin::manta_zkp_key_gen(&hash_param_seed, &commit_param_seed);
+            ZKPKey::put(zkp_key);
 
 
             <Balances<T>>::insert(&origin, total);
@@ -276,14 +276,14 @@ decl_module! {
             coin_list.push(coin_new);
 
             // get the verification key from the ledger
-            let vk_bytes = ZKPVerificationKey::get();
+            let key_bytes = ZKPKey::get();
 
             // get the ledger state from the ledger
             let state = LedgerState::get();
 
             // check validity of zkp
             ensure!(
-                priv_coin::manta_verify_zkp(vk_bytes, zkp, sn_old, pk_old, k_old, k_new, cm_new, state.state),
+                priv_coin::manta_verify_zkp(key_bytes, zkp, sn_old, pk_old, k_old, k_new, cm_new, state.state),
                 <Error<T>>::ZKPFail,
             );
 
@@ -367,7 +367,13 @@ decl_storage! {
         pub CommitParamSeed get(fn commit_param_seed): [u8; 32];
 
         /// verification key for zero-knowledge proof
-        pub ZKPVerificationKey get(fn zkp_vk): Vec<u8>;
+        /// at the moment we are storing the whole serialized key 
+        /// in the blockchain storage. this incurrs a significant
+        /// cost of deserialization, during verification.
+        /// alternatives to be decided later:
+        ///     1. hard code the parameters in the code
+        ///     2. store deserialized keys
+        pub ZKPKey get(fn zkp_vk): Vec<u8>;
 
     }
 }
