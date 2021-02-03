@@ -39,8 +39,8 @@ pub struct TransferCircuit {
 impl ConstraintSynthesizer<Fq> for TransferCircuit {
     fn generate_constraints(self, cs: ConstraintSystemRef<Fq>) -> Result<(), SynthesisError> {
         // 1. both sender's and receiver's coins are well-formed
-        //      k = com(pk||rho, r)
-        //      cm = com(v||k, s)
+        //  k = com(pk||rho, r)
+        //  cm = com(v||k, s)
         token_well_formed_circuit_helper(true, &self.param.commit_param, &self.sender, cs.clone());
         token_well_formed_circuit_helper(
             false,
@@ -193,6 +193,7 @@ fn prf_circuit_helper(
     output_var.enforce_equal(&actual_out_var).unwrap();
 }
 
+#[allow(dead_code)]
 fn merkle_membership_circuit_proof(
     param: &HashParam,
     cm: &PrivCoinCommitmentOutput,
