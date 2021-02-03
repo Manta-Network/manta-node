@@ -79,12 +79,14 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
         //  sender.pk = PRF(sender_sk, [0u8;32])
         //  sender.sn = PRF(sender_sk, rho)
         prf_circuit_helper(
+            true,
             &self.sender_priv_info.sk,
             &[0u8; 32],
-            &self.sender_coin.pk,
+            &self.sender_pub_info.pk,
             cs.clone(),
         );
         prf_circuit_helper(
+            false,
             &self.sender_priv_info.sk,
             &self.sender_pub_info.rho,
             &self.sender_priv_info.sn,
@@ -135,7 +137,7 @@ fn token_well_formed_circuit_helper(
     // =============================
     // statement 1: k = com(pk||rho, r)
     // =============================
-    let input: Vec<u8> = [coin.pk.as_ref(), pub_info.rho.as_ref()].concat();
+    let input: Vec<u8> = [pub_info.pk.as_ref(), pub_info.rho.as_ref()].concat();
     let mut input_var = Vec::new();
     for byte in &input {
         input_var.push(UInt8::new_witness(cs.clone(), || Ok(*byte)).unwrap());
@@ -212,6 +214,7 @@ fn token_well_formed_circuit_helper(
 // We will revisit this later.
 //=======================
 fn prf_circuit_helper(
+    is_output_hided: bool,
     seed: &[u8; 32],
     input: &[u8; 32],
     output: &[u8; 32],
@@ -249,8 +252,14 @@ fn prf_circuit_helper(
 
     // step 4. Actual output and make sure the outputs match
     for (i, output_bytes) in output.iter().enumerate() {
-        let tmp =
-            UInt8::new_variable(cs.clone(), || Ok(output_bytes), AllocationMode::Input).unwrap();
+        let tmp = {
+            if is_output_hided {
+                UInt8::new_variable(cs.clone(), || Ok(output_bytes), AllocationMode::Witness)
+                    .unwrap()
+            } else {
+                UInt8::new_variable(cs.clone(), || Ok(output_bytes), AllocationMode::Input).unwrap()
+            }
+        };
         tmp.enforce_equal(&output_var.0[i]).unwrap();
     }
 }
@@ -392,13 +401,13 @@ fn test_zkp_local() {
     // format the input to the verification
     let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
 
-    for e in sender.pk.iter() {
-        let mut f = *e;
-        for _ in 0..8 {
-            inputs.push((f & 0b1).into());
-            f = f >> 1;
-        }
-    }
+    // for e in sender.pk.iter() {
+    //     let mut f = *e;
+    //     for _ in 0..8 {
+    //         inputs.push((f & 0b1).into());
+    //         f = f >> 1;
+    //     }
+    // }
 
     for e in sender_priv_info.sn.iter() {
         let mut f = *e;
@@ -471,7 +480,7 @@ fn test_zkp_interface() {
         key_bytes,
         proof_bytes,
         sender_priv_info.sn,
-        sender.pk,
+        // sender.pk,
         sender_pub_info.k,
         receiver_pub_info.k,
         receiver.cm_bytes,

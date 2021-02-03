@@ -134,7 +134,6 @@ pub fn manta_verify_zkp(
     key_bytes: Vec<u8>,
     proof: [u8; 196],
     sn_old: [u8; 32],
-    pk_old: [u8; 32],
     k_old: [u8; 32],
     k_new: [u8; 32],
     cm_new: [u8; 32],
@@ -152,13 +151,13 @@ pub fn manta_verify_zkp(
 
     let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
     // let mut inputs = Vec::new();
-    for e in pk_old.iter() {
-        let mut f = *e;
-        for _ in 0..8 {
-            inputs.push((f & 0b1).into());
-            f = f >> 1;
-        }
-    }
+    // for e in pk_old.iter() {
+    //     let mut f = *e;
+    //     for _ in 0..8 {
+    //         inputs.push((f & 0b1).into());
+    //         f = f >> 1;
+    //     }
+    // }
 
     for e in sn_old.iter() {
         let mut f = *e;
@@ -224,12 +223,9 @@ pub fn make_coin<R: RngCore + CryptoRng>(
     let mut cm_bytes = [0u8; 32];
     cm.serialize(cm_bytes.as_mut()).unwrap();
 
-    let coin = MantaCoin {
-        pk,
-        cm_bytes,
-        value,
-    };
+    let coin = MantaCoin { cm_bytes, value };
     let pub_info = MantaCoinPubInfo {
+        pk,
         rho,
         s: s_bytes,
         r: r_bytes,

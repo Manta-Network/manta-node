@@ -30,7 +30,6 @@ use frame_support::codec::{Decode, Encode};
 /// raw value right now. This will be changed in a later version.
 #[derive(Encode, Debug, Decode, Clone, Default, PartialEq)]
 pub struct MantaCoin {
-    pub(crate) pk: [u8; 32],
     pub(crate) cm_bytes: [u8; 32],
     pub(crate) value: u64,
 }
@@ -44,6 +43,7 @@ pub struct MantaLedgerState {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 pub struct MantaCoinPubInfo {
+    pub(crate) pk: [u8; 32],
     pub(crate) rho: [u8; 32],
     pub(crate) s: [u8; 32],
     pub(crate) r: [u8; 32],

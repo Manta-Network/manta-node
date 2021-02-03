@@ -191,7 +191,6 @@ decl_module! {
         #[weight = 0]
         fn mint(origin,
             amount: u64,
-            pk: [u8; 32],
             k: [u8; 32],
             s: [u8; 32],
             cm: [u8; 32]
@@ -223,7 +222,6 @@ decl_module! {
 
             // add the new coin to the ledger
             let coin = MantaCoin {
-                pk,
                 cm_bytes: cm,
                 value: amount,
             };
@@ -246,10 +244,8 @@ decl_module! {
         #[weight = 0]
         fn manta_transfer(origin,
             merkle_root: [u8; 32],
-            pk_old: [u8; 32],
             sn_old: [u8; 32],
             k_old: [u8; 32],
-            pk_new: [u8; 32],
             k_new: [u8; 32],
             cm_new: [u8; 32],
             // todo: amount shall be an encrypted
@@ -268,7 +264,6 @@ decl_module! {
             // update coin list
             let mut coin_list = CoinList::get();
             let coin_new = MantaCoin{
-                pk: pk_new,
                 cm_bytes: cm_new,
                 // todo: amount shall be an encrypted
                 value: amount,
@@ -283,7 +278,7 @@ decl_module! {
 
             // check validity of zkp
             ensure!(
-                priv_coin::manta_verify_zkp(key_bytes, zkp, sn_old, pk_old, k_old, k_new, cm_new, state.state),
+                priv_coin::manta_verify_zkp(key_bytes, zkp, sn_old, k_old, k_new, cm_new, state.state),
                 <Error<T>>::ZKPFail,
             );
 
@@ -490,7 +485,6 @@ mod tests {
             assert_ok!(Assets::mint(
                 Origin::signed(1),
                 10,
-                coin.pk,
                 pub_info.k,
                 pub_info.s,
                 coin.cm_bytes
@@ -529,7 +523,6 @@ mod tests {
             assert_ok!(Assets::mint(
                 Origin::signed(1),
                 10,
-                sender.pk,
                 sender_pub_info.k,
                 sender_pub_info.s,
                 sender.cm_bytes
@@ -569,10 +562,8 @@ mod tests {
             assert_ok!(Assets::manta_transfer(
                 Origin::signed(1),
                 [0u8; 32],
-                sender.pk,
                 sender_priv_info.sn,
                 sender_pub_info.k,
-                receiver.pk,
                 receiver_pub_info.k,
                 receiver.cm_bytes,
                 10,
