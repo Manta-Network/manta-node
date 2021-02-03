@@ -66,7 +66,7 @@ pub struct Coin {
 #[derive(Debug, Clone)]
 pub struct CoinPrivateInfo {
     pub sk: [u8; 32],
-    sn: [u8; 32],
+    pub sn: [u8; 32],
 }
 
 #[derive(Debug, Clone)]
@@ -198,6 +198,7 @@ pub fn manta_verify_zkp(
     vk_bytes: Vec<u8>,
     proof: [u8; 196],
     sn_old: [u8; 32],
+    pk_old: [u8; 32],
     k_old: [u8; 64],
     k_new: [u8; 64],
     cm_new: [u8; 64],
@@ -209,18 +210,32 @@ pub fn manta_verify_zkp(
     let k_old = PrivCoinCommitmentOutput::read(k_old.as_ref()).unwrap();
     let k_new = PrivCoinCommitmentOutput::read(k_new.as_ref()).unwrap();
     let cm_new = PrivCoinCommitmentOutput::read(cm_new.as_ref()).unwrap();
-    let merkle_root = HashOutput::read(merkle_root.as_ref()).unwrap();
-    let inputs = [
-        // todo: add the sn_old to the circuit iputs
+    let _merkle_root = HashOutput::read(merkle_root.as_ref()).unwrap();
+    
+    let mut inputs = [
         k_old.x,
         k_old.y,
         k_new.x,
         k_new.y,
         cm_new.x,
         cm_new.y,
-        merkle_root.x,
-        merkle_root.y,
-    ];
+    ].to_vec();
+
+    for e in sn_old.iter() {
+        let mut f = *e;
+        for _ in 0..8 {
+            inputs.push((f & 0b1).into());
+            f = f >> 1;
+        }
+    }
+
+    for e in pk_old.iter() {
+        let mut f = *e;
+        for _ in 0..8 {
+            inputs.push((f & 0b1).into());
+            f = f >> 1;
+        }
+    }
 
     verify_proof(&pvk, &proof, &inputs[..]).unwrap()
 }

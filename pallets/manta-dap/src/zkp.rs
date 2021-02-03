@@ -39,6 +39,8 @@ pub struct TransferCircuit {
 impl ConstraintSynthesizer<Fq> for TransferCircuit {
     fn generate_constraints(self, cs: ConstraintSystemRef<Fq>) -> Result<(), SynthesisError> {
         // 1. both sender's and receiver's coins are well-formed
+        //      k = com(pk||rho, r)
+        //      cm = com(v||k, s)
         token_well_formed_circuit_helper(true, &self.param.commit_param, &self.sender, cs.clone());
         token_well_formed_circuit_helper(
             false,
@@ -49,7 +51,10 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
 
         // 2. address and the secret key derives public key
         //  sender.pk = PRF(sender_sk, [0u8;32])
+        //  sender.sn = PRF(sender_sk, rho)
         prf_circuit_helper(&self.sender_sk.sk, &[0u8; 32], &self.sender.pk, cs.clone());
+        prf_circuit_helper(&self.sender_sk.sk, &self.sender.rho, &self.sender_sk.sn, cs.clone());
+      
 
         // // 3. sender's commitment is in List_all
         // merkle_membership_circuit_proof(
@@ -178,7 +183,7 @@ fn prf_circuit_helper(
     let output_var = Blake2sGadget::evaluate(&seed_var, &input_var).unwrap();
 
     // step 4. Actual output
-    let actual_out_var = <Blake2sGadget as PRFGadget<_, Fq>>::OutputVar::new_witness(
+    let actual_out_var = <Blake2sGadget as PRFGadget<_, Fq>>::OutputVar::new_input(
         ark_relations::ns!(cs, "declare_output"),
         || Ok(output),
     )
