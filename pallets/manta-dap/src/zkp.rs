@@ -39,20 +39,25 @@ pub struct TransferCircuit {
 impl ConstraintSynthesizer<Fq> for TransferCircuit {
     fn generate_constraints(self, cs: ConstraintSystemRef<Fq>) -> Result<(), SynthesisError> {
         // 1. both sender's and receiver's coins are well-formed
-        token_well_formed_circuit_helper(&self.param.commit_param, &self.sender, cs.clone());
-        token_well_formed_circuit_helper(&self.param.commit_param, &self.receiver, cs.clone());
+        token_well_formed_circuit_helper(true, &self.param.commit_param, &self.sender, cs.clone());
+        token_well_formed_circuit_helper(
+            false,
+            &self.param.commit_param,
+            &self.receiver,
+            cs.clone(),
+        );
 
         // 2. address and the secret key derives public key
         //  sender.pk = PRF(sender_sk, [0u8;32])
         prf_circuit_helper(&self.sender_sk.sk, &[0u8; 32], &self.sender.pk, cs.clone());
 
-        // 3. sender's commitment is in List_all
-        merkle_membership_circuit_proof(
-            &self.param.hash_param,
-            &self.sender.cm,
-            &self.list,
-            cs.clone(),
-        );
+        // // 3. sender's commitment is in List_all
+        // merkle_membership_circuit_proof(
+        //     &self.param.hash_param,
+        //     &self.sender.cm,
+        //     &self.list,
+        //     cs.clone(),
+        // );
 
         // 4. sender's and receiver's value are the same
         let sender_value_fq = Fq::from(self.sender.value);
@@ -80,6 +85,7 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
 // where both k and cm are public
 // =============================
 fn token_well_formed_circuit_helper(
+    is_sender: bool,
     param: &PrivCoinCommitmentParam,
     coin: &Coin,
     cs: ConstraintSystemRef<Fq>,
@@ -139,11 +145,20 @@ fn token_well_formed_circuit_helper(
     let result_var =
         PrivCoinCommitmentSchemeVar::commit(&parameters_var, &input_var, &randomness_var).unwrap();
     // circuit to compare the commited value with supplied value
-    let commitment_var2 =
+    // if the commitment is from the sender, then the commitment is hidden
+    // else, it is public
+    let commitment_var2 = if is_sender {
+        PrivCoinCommitmentOutputVar::new_witness(
+            ark_relations::ns!(cs, "gadget_commitment"),
+            || Ok(coin.cm),
+        )
+        .unwrap()
+    } else {
         PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
             Ok(coin.cm)
         })
-        .unwrap();
+        .unwrap()
+    };
     result_var.enforce_equal(&commitment_var2).unwrap();
 }
 
