@@ -30,6 +30,8 @@ pub type PrivCoinAccountMembershipVar = PathVar<MerkleTreeParams, HashVar, Fq>;
 pub type Groth16PK = <Groth16<Bls12_381> as SNARK<Fq>>::ProvingKey;
 #[allow(dead_code)]
 pub type Groth16PVK = <Groth16<Bls12_381> as SNARK<Fq>>::ProcessedVerifyingKey;
+#[allow(dead_code)]
+pub type Groth16VK = <Groth16<Bls12_381> as SNARK<Fq>>::VerifyingKey;
 pub type Groth16Proof = <Groth16<Bls12_381> as SNARK<Fq>>::Proof;
 
 //=======================

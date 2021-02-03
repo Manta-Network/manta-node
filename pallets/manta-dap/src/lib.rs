@@ -88,6 +88,7 @@ extern crate ark_ed_on_bls12_381;
 extern crate ark_groth16;
 extern crate ark_r1cs_std;
 extern crate ark_relations;
+extern crate ark_serialize;
 extern crate ark_std;
 extern crate rand_chacha;
 // extern crate blake2;
@@ -101,8 +102,10 @@ mod priv_coin;
 mod zkp;
 mod zkp_types;
 
-use frame_support::codec::{Encode, Decode};
+
+// use frame_system::Module;
 use ark_std::vec::Vec;
+use frame_support::codec::{Decode, Encode};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{StaticLookup, Zero};
@@ -111,16 +114,18 @@ use sp_runtime::traits::{StaticLookup, Zero};
 /// a MantaCoin is a pair of commitment cm and ciphertext c, where
 ///  * cm = com(v||k, s), commits to the value, and
 ///  * c = enc(v), encrypts the value under user (receiver) public key
-/// For simplicity, the prototype does not use encryption, and store the 
+/// For simplicity, the prototype does not use encryption, and store the
 /// raw value right now. This will be changed in a later version.
 #[derive(Encode, Decode, Clone, PartialEq)]
 pub struct MantaCoin {
+    pub(crate) pk: [u8; 32],
     pub(crate) cm: [u8; 64],
     pub(crate) value: u64,
 }
-impl Default for MantaCoin{
+impl Default for MantaCoin {
     fn default() -> Self {
-        Self{
+        Self {
+            pk: [0u8; 32],
             cm: [0u8; 64],
             value: 0,
         }
@@ -134,11 +139,10 @@ impl Default for MantaCoin{
 pub struct MantaLedgerState {
     pub(crate) state: [u8; 64],
 }
-impl Default for MantaLedgerState{
+
+impl Default for MantaLedgerState {
     fn default() -> Self {
-        Self{
-            state: [0u8; 64],
-        }
+        Self { state: [0u8; 64] }
     }
 }
 
@@ -166,6 +170,9 @@ decl_module! {
         #[weight = 0]
         fn init(origin, total: u64) {
 
+            ensure!(!Self::is_init(), <Error<T>>::AlreadyInitialized);
+            let origin = ensure_signed(origin)?;
+
             // for now we hard code the seeds as:
             //  * hash parameter seed: [1u8; 32]
             //  * commitment parameter seed: [2u8; 32]
@@ -173,10 +180,15 @@ decl_module! {
             let hash_param_seed = [1u8; 32];
             let commit_param_seed = [2u8; 32];
 
-            // todo: push the ZKP verification key to the ledger storage
 
-            ensure!(!Self::is_init(), <Error<T>>::AlreadyInitialized);
-            let origin = ensure_signed(origin)?;
+            // generate the ZKP verification key and push it to the ledger storage
+            // note: for prototype, we use this function to generate the ZKP verification key
+            // for product we should use a MPC protocol to build the ZKP verification key
+            // and then depoly that vk
+            let zkp_vk = priv_coin::manta_zkp_vk_gen(&hash_param_seed, &commit_param_seed);
+            ZKPVerificationKey::put(zkp_vk);
+
+
             <Balances<T>>::insert(&origin, total);
             <TotalSupply>::put(total);
             Self::deposit_event(RawEvent::Issued(origin, total));
@@ -200,6 +212,7 @@ decl_module! {
         ) {
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
+
             let origin_account = origin.clone();
             let origin_balance = <Balances<T>>::get(&origin_account);
             let target = T::Lookup::lookup(target)?;
@@ -216,6 +229,7 @@ decl_module! {
         #[weight = 0]
         fn mint(origin,
             amount: u64,
+            pk: [u8; 32],
             k: [u8; 64],
             s: [u8; 32],
             cm: [u8; 64]
@@ -241,12 +255,13 @@ decl_module! {
             for e in coin_list.iter() {
                 ensure!(
                     e.cm != cm,
-                    Error::<T>::CoinExist
+                    Error::<T>::MantaCoinExist
                 )
             }
 
-            // add the new coin to the ledger 
+            // add the new coin to the ledger
             let coin = MantaCoin {
+                pk,
                 cm,
                 value: amount,
             };
@@ -263,6 +278,62 @@ decl_module! {
             PoolBalance::put(old_pool_balance + amount);
         }
 
+
+        /// Private Transfer
+        /// check the type of sn_old
+        #[weight = 0]
+        fn manta_transfer(origin,
+            merkle_root: [u8; 64],
+            pk_old: [u8; 32],
+            sn_old: [u8; 32],
+            k_old: [u8; 64],
+            pk_new: [u8; 32],
+            k_new: [u8; 64],
+            cm_new: [u8; 64],
+            // todo: amount shall be an encrypted
+            amount: u64,
+            zkp: [u8; 196]
+        ) {
+
+            ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
+            let origin = ensure_signed(origin)?;
+
+            // check if sn_old already spent
+            let mut sn_list = SNList::get();
+            ensure!(sn_list.contains(&sn_old), <Error<T>>::MantaCoinSpent);
+            sn_list.push(sn_old);
+
+            // update coin list
+            let mut coin_list = CoinList::get();
+            let coin_new = MantaCoin{
+                pk: pk_new,
+                cm: cm_new,
+                // todo: amount shall be an encrypted
+                value: amount,
+            };
+            coin_list.push(coin_new);
+
+            // get the verification key from the ledger
+            let vk_bytes = ZKPVerificationKey::get();
+
+            // get the ledger state from the ledger
+            let state = LedgerState::get();
+
+            // check validity of zkp
+            ensure!(
+                priv_coin::manta_verify_zkp(vk_bytes, zkp, sn_old, pk_old, k_old, k_new, cm_new, state.state),
+                <Error<T>>::ZKPFail,
+            );
+
+
+            // TODO: revisit replay attack here
+
+
+            // update ledger state
+            Self::deposit_event(RawEvent::PrivateTransferred(origin));
+            CoinList::put(coin_list);
+            SNList::put(sn_list);
+        }
     }
 }
 
@@ -276,7 +347,8 @@ decl_event! {
         Transferred(AccountId, AccountId, u64),
         /// The asset was minted to private
         Minted(AccountId, u64),
-
+        /// Private transfer
+        PrivateTransferred(AccountId),
     }
 }
 
@@ -295,7 +367,11 @@ decl_error! {
         /// Mint failure
         MintFail,
         /// MantaCoin exist
-        CoinExist,
+        MantaCoinExist,
+        /// MantaCoin already spend
+        MantaCoinSpent,
+        /// ZKP verification failed
+        ZKPFail
     }
 }
 
@@ -313,7 +389,8 @@ decl_storage! {
         /// List of sns
         pub SNList get(fn sn_list): Vec<[u8; 32]>;
 
-        /// List of Coins that has ever been created 
+
+        /// List of Coins that has ever been created
         pub CoinList get(fn coin_list): Vec<MantaCoin>;
 
         /// merkle root of list of commitments
@@ -327,6 +404,10 @@ decl_storage! {
 
         /// the seed of commit parameter
         pub CommitParamSeed get(fn commit_param_seed): [u8; 32];
+
+        /// verification key for zero-knowledge proof
+        pub ZKPVerificationKey get(fn zkp_vk): Vec<u8>;
+
     }
 }
 

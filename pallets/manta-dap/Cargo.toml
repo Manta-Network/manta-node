@@ -35,6 +35,7 @@ ark-std = { git = "https://github.com/arkworks-rs/utils", default-features = fal
 ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", default-features = false, features = [ "r1cs" ] }
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std", default-features = false }
 ark-relations = { git = "https://github.com/arkworks-rs/snark", default-features = false }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra", default-features = false, features = [ "derive" ] }
 
 [dev-dependencies]
 sp-core = { version = "2.0.1", default-features = false }
