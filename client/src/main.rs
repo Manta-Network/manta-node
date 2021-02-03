@@ -1,11 +1,17 @@
-use ark_crypto_primitives::prf::Blake2s;
-use ark_crypto_primitives::prf::PRF;
+use ark_crypto_primitives::CommitmentScheme;
+use ark_crypto_primitives::commitment;
+use ark_ed_on_bls12_381::Fr;
+use ark_crypto_primitives::commitment::pedersen::Randomness;
+use ark_ff::UniformRand;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
 use data_encoding::BASE64;
 use pallet_manta_dap::dap_setup::*;
 use pallet_manta_dap::priv_coin::*;
 use pallet_manta_dap::types::*;
 use rand::RngCore;
 use rand::SeedableRng;
+use rand_core::CryptoRng;
 use rand_chacha::ChaCha20Rng;
 use structopt::StructOpt;
 
@@ -20,14 +26,31 @@ struct Cli {
 }
 
 /// Generate manta (sk, pk) pair
-fn manta_keygen(seed: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
+pub fn manta_keygen(seed: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
     // get an rng from seed
     let mut rng = ChaCha20Rng::from_seed(*seed);
     // sample a random sk
     let mut sk = [0u8; 32];
     rng.fill_bytes(&mut sk);
-    let pk = <Blake2s as PRF>::evaluate(&sk, &[0u8; 32]).unwrap();
+    let pk = manta_prf(&sk, &[0u8; 32]);
     (sk.clone(), pk.clone())
+}
+
+/// PRF used for sn, address, and commitment
+pub fn manta_prf(nonce: &[u8; 32], payload: &[u8]) -> [u8;32] {
+    let param = (); // TODO: ask zhenfei, what is the param here
+    <commitment::blake2s::Commitment as CommitmentScheme>::commit(&param, &payload, &nonce).unwrap()
+}
+
+/// commitment scheme that is used in Manta
+pub fn manta_commit(commit_param: &PrivCoinCommitmentParam, payload: &[u8]) -> ([u8; 32], PrivCoinCommitmentOutput) {
+    let mut rng = rand::thread_rng();
+    let r = Fr::rand(&mut rng);
+    let mut r_bytes = [0u8; 32];
+    r.serialize(r_bytes.as_mut()).unwrap();
+    let r = Randomness(r);
+    let comm = PrivCoinCommitmentScheme::commit(&commit_param, &payload, &r).unwrap();
+    (r_bytes, comm)
 }
 
 // pub struct Coin {
@@ -55,6 +78,13 @@ fn main() {
     let pvk = Groth16PVK::from(vk);
     println!("public parameter for zkp generated ......");
     // 3. generate mint txn
-    let zkp_params = deseralize_commit_params(&commit_param_seed);
-    let (coin, pub_info, priv_info) = make_coin(&zkp_params, sk, args.amount, &mut rng);
+    // prepare amount, rho, k, s, cm, and sn
+    // sample a random rho
+    let mut rho = [0u8; 32];
+    rng.fill_bytes(&mut rho);
+    // compute sn
+    let sn = manta_prf(&sk, &rho);
+    let comm_params = deseralize_commit_params(&commit_param_seed);
+    let (coin, pub_info, priv_info) = make_coin(&comm_params, sk, args.amount, &mut rng);
+
 }
