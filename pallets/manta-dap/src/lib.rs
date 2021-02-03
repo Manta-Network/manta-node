@@ -250,7 +250,7 @@ decl_module! {
             cm_new: [u8; 32],
             // todo: amount shall be an encrypted
             amount: u64,
-            zkp: [u8; 196]
+            proof: [u8; 196]
         ) {
 
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
@@ -278,7 +278,7 @@ decl_module! {
 
             // check validity of zkp
             ensure!(
-                priv_coin::manta_verify_zkp(key_bytes, zkp, sn_old, k_old, k_new, cm_new, state.state),
+                priv_coin::manta_verify_zkp(key_bytes, proof, sn_old, k_old, k_new, cm_new, state.state),
                 <Error<T>>::ZKPFail,
             );
 
@@ -389,7 +389,10 @@ mod tests {
     use crate::zkp::TransferCircuit;
     use ark_crypto_primitives::CommitmentScheme;
     use ark_crypto_primitives::FixedLengthCRH;
+    use ark_ed_on_bls12_381::Fq;
     use ark_groth16::create_random_proof;
+    use ark_relations::r1cs::ConstraintSynthesizer;
+    use ark_relations::r1cs::ConstraintSystem;
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use frame_support::{
         assert_noop, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
@@ -552,6 +555,13 @@ mod tests {
                 list: Vec::new(),
             };
 
+            let sanity_cs = ConstraintSystem::<Fq>::new_ref();
+            circuit
+                .clone()
+                .generate_constraints(sanity_cs.clone())
+                .unwrap();
+            assert!(sanity_cs.is_satisfied().unwrap());
+
             let proving_key_bytes = ZKPKey::get();
             let proving_key = Groth16PK::deserialize(proving_key_bytes.as_ref()).unwrap();
             let proof = create_random_proof(circuit, &proving_key, &mut rng).unwrap();
@@ -577,7 +587,7 @@ mod tests {
             let coin_list = CoinList::get();
             assert_eq!(coin_list.len(), 2);
             assert_eq!(coin_list[0], sender);
-            assert_eq!(coin_list[0], receiver);
+            assert_eq!(coin_list[1], receiver);
             let sn_list = SNList::get();
             assert_eq!(sn_list.len(), 1);
             assert_eq!(sn_list[0], sender_priv_info.sn);

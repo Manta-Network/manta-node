@@ -61,7 +61,7 @@ pub fn merkle_root(param_seed: &[u8; 32], payload: &[MantaCoin]) -> MantaLedgerS
     MantaLedgerState { state: bytes }
 }
 
-pub fn manta_zkp_key_gen(commit_param_seed: &[u8; 32], hash_param_seed: &[u8; 32]) -> Vec<u8> {
+pub fn manta_zkp_key_gen(hash_param_seed: &[u8; 32], commit_param_seed: &[u8; 32]) -> Vec<u8> {
     // rebuild the parameters from the inputs
     let mut rng = ChaCha20Rng::from_seed(*commit_param_seed);
     let commit_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
@@ -123,7 +123,7 @@ pub fn manta_zkp_key_gen(commit_param_seed: &[u8; 32], hash_param_seed: &[u8; 32
         .unwrap();
     assert!(sanity_cs.is_satisfied().unwrap());
 
-    let pk = generate_random_parameters::<Bls12_381, _, _>(circuit.clone(), &mut rng).unwrap();
+    let pk = generate_random_parameters::<Bls12_381, _, _>(circuit, &mut rng).unwrap();
     let mut pk_bytes: Vec<u8> = Vec::new();
 
     pk.serialize(&mut pk_bytes).unwrap();
@@ -163,7 +163,7 @@ pub fn manta_verify_zkp(
         let mut f = *e;
         for _ in 0..8 {
             inputs.push((f & 0b1).into());
-            f = f >> 1;
+            f >>= 1;
         }
     }
 

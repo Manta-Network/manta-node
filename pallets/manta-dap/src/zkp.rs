@@ -440,7 +440,7 @@ fn test_zkp_interface() {
     let mut rng = ChaCha20Rng::from_seed(hash_param_seed);
     let hash_param = Hash::setup(&mut rng).unwrap();
 
-    let key_bytes = manta_zkp_key_gen(&commit_param_seed, &hash_param_seed);
+    let key_bytes = manta_zkp_key_gen(&hash_param_seed, &commit_param_seed);
     let pk = Groth16PK::deserialize(key_bytes.as_ref()).unwrap();
 
     // sender
