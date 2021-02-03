@@ -3,7 +3,7 @@ use ark_crypto_primitives::prf::PRF;
 use data_encoding::BASE64;
 use pallet_manta_dap::dap_setup::*;
 use pallet_manta_dap::priv_coin::*;
-use pallet_manta_dap::zkp_types::*;
+use pallet_manta_dap::types::*;
 use rand::RngCore;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
@@ -13,7 +13,7 @@ use structopt::StructOpt;
 #[derive(StructOpt)]
 struct Cli {
     /// The pattern to look for
-    amount: u32,
+    amount: u64,
     // The path to the file to read
     //#[structopt(parse(from_os_str))]
     //path: std::path::PathBuf,
@@ -55,7 +55,6 @@ fn main() {
     let pvk = Groth16PVK::from(vk);
     println!("public parameter for zkp generated ......");
     // 3. generate mint txn
-    let zkp_params = deseralize_zkp_params(&hash_param_seed, &commit_param_seed);
-    let (coin, spending_key, tx_mint) =
-        <Manta as PrivCoin>::mint(&zkp_params, &sk, args.amount, &mut rng);
+    let zkp_params = deseralize_commit_params(&commit_param_seed);
+    let (coin, pub_info, priv_info) = make_coin(&zkp_params, sk, args.amount, &mut rng);
 }

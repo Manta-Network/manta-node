@@ -97,53 +97,17 @@ extern crate rand_chacha;
 // extern crate rand_core;
 // extern crate sha2;
 
-pub mod crypto_types;
 pub mod dap_setup;
 pub mod priv_coin;
+pub mod types;
 pub mod zkp;
-pub mod zkp_types;
 
 // use frame_system::Module;
+use crate::types::*;
 use ark_std::vec::Vec;
-use frame_support::codec::{Decode, Encode};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{StaticLookup, Zero};
-
-/// a MantaCoin is a pair of commitment cm and ciphertext c, where
-///  * cm = com(v||k, s), commits to the value, and
-///  * c = enc(v), encrypts the value under user (receiver) public key
-/// For simplicity, the prototype does not use encryption, and store the
-/// raw value right now. This will be changed in a later version.
-#[derive(Encode, Decode, Clone, PartialEq)]
-pub struct MantaCoin {
-    pub(crate) pk: [u8; 32],
-    pub(crate) cm: [u8; 64],
-    pub(crate) value: u64,
-}
-
-impl Default for MantaCoin {
-    fn default() -> Self {
-        Self {
-            pk: [0u8; 32],
-            cm: [0u8; 64],
-            value: 0,
-        }
-    }
-}
-
-/// the state of the ledger is a root of the merkle tree
-/// where the leafs are the MantaCoins
-#[derive(Encode, Decode, Clone, PartialEq)]
-pub struct MantaLedgerState {
-    pub(crate) state: [u8; 64],
-}
-
-impl Default for MantaLedgerState {
-    fn default() -> Self {
-        Self { state: [0u8; 64] }
-    }
-}
 
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
@@ -229,9 +193,9 @@ decl_module! {
         fn mint(origin,
             amount: u64,
             pk: [u8; 32],
-            k: [u8; 64],
+            k: [u8; 32],
             s: [u8; 32],
-            cm: [u8; 64]
+            cm: [u8; 32]
         ) {
             // get the original balance
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
@@ -253,7 +217,7 @@ decl_module! {
             let mut coin_list = CoinList::get();
             for e in coin_list.iter() {
                 ensure!(
-                    e.cm != cm,
+                    e.cm_bytes != cm,
                     Error::<T>::MantaCoinExist
                 )
             }
@@ -261,7 +225,7 @@ decl_module! {
             // add the new coin to the ledger
             let coin = MantaCoin {
                 pk,
-                cm,
+                cm_bytes: cm,
                 value: amount,
             };
             coin_list.push(coin);
@@ -282,13 +246,13 @@ decl_module! {
         /// check the type of sn_old
         #[weight = 0]
         fn manta_transfer(origin,
-            merkle_root: [u8; 64],
+            merkle_root: [u8; 32],
             pk_old: [u8; 32],
             sn_old: [u8; 32],
-            k_old: [u8; 64],
+            k_old: [u8; 32],
             pk_new: [u8; 32],
-            k_new: [u8; 64],
-            cm_new: [u8; 64],
+            k_new: [u8; 32],
+            cm_new: [u8; 32],
             // todo: amount shall be an encrypted
             amount: u64,
             zkp: [u8; 196]
@@ -306,7 +270,7 @@ decl_module! {
             let mut coin_list = CoinList::get();
             let coin_new = MantaCoin{
                 pk: pk_new,
-                cm: cm_new,
+                cm_bytes: cm_new,
                 // todo: amount shall be an encrypted
                 value: amount,
             };
@@ -385,7 +349,6 @@ decl_storage! {
 
         /// List of sns
         pub SNList get(fn sn_list): Vec<[u8; 32]>;
-
 
         /// List of Coins that has ever been created
         pub CoinList get(fn coin_list): Vec<MantaCoin>;
