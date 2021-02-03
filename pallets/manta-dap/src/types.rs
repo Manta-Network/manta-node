@@ -28,7 +28,7 @@ use frame_support::codec::{Decode, Encode};
 ///  * c = enc(v), encrypts the value under user (receiver) public key
 /// For simplicity, the prototype does not use encryption, and store the
 /// raw value right now. This will be changed in a later version.
-#[derive(Encode, Decode, Clone, Default, PartialEq)]
+#[derive(Encode, Debug, Decode, Clone, Default, PartialEq)]
 pub struct MantaCoin {
     pub(crate) pk: [u8; 32],
     pub(crate) cm_bytes: [u8; 32],
