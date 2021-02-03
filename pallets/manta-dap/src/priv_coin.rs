@@ -23,7 +23,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::CryptoRng;
 use rand_core::RngCore;
 
-pub struct Manta;
+// pub struct Manta;
 
 #[allow(dead_code)]
 pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 32] {
@@ -104,7 +104,7 @@ pub fn manta_zkp_vk_gen(commit_param_seed: &[u8; 32], hash_param_seed: &[u8; 32]
     // receiver
     let mut sk = [0u8; 32];
     rng.fill_bytes(&mut sk);
-    let (receiver, receiver_pub_info, receiver_priv_info) =
+    let (receiver, receiver_pub_info, _receiver_priv_info) =
         make_coin(&commit_param, sk, 100, &mut rng);
 
     // transfer circuit
@@ -202,7 +202,7 @@ pub fn make_coin<R: RngCore + CryptoRng>(
     k.serialize(k_bytes.as_mut()).unwrap();
 
     // cm = com(v||k, s)
-    let mut buf: Vec<u8> = [value.to_le_bytes().as_ref(), k_bytes.clone().as_ref()].concat();
+    let buf: Vec<u8> = [value.to_le_bytes().as_ref(), k_bytes.clone().as_ref()].concat();
 
     let s = Fr::rand(rng);
     let mut s_bytes = [0u8; 32];
@@ -227,4 +227,3 @@ pub fn make_coin<R: RngCore + CryptoRng>(
     let priv_info = MantaCoinPrivInfo { sk, sn };
     (coin, pub_info, priv_info)
 }
-

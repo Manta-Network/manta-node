@@ -1,21 +1,35 @@
 use crate::priv_coin::*;
+use crate::priv_coin::*;
 use crate::types::*;
 use crate::MantaCoin;
+use ark_bls12_381::Bls12_381;
 use ark_crypto_primitives::commitment::pedersen::Randomness;
 use ark_crypto_primitives::prf::blake2s::constraints::Blake2sGadget;
+use ark_crypto_primitives::prf::Blake2s;
 use ark_crypto_primitives::prf::PRFGadget;
+use ark_crypto_primitives::prf::PRF;
 use ark_crypto_primitives::CommitmentGadget;
+use ark_crypto_primitives::CommitmentScheme;
+use ark_crypto_primitives::FixedLengthCRH;
 use ark_crypto_primitives::PathVar;
 use ark_ed_on_bls12_381::constraints::FqVar;
 use ark_ed_on_bls12_381::EdwardsProjective;
 use ark_ed_on_bls12_381::Fq;
 use ark_ed_on_bls12_381::Fr;
-use ark_ff::ToBytes;
+use ark_ff::UniformRand;
+use ark_groth16::create_random_proof;
+use ark_groth16::{generate_random_parameters, verify_proof};
 use ark_r1cs_std::alloc::AllocVar;
 use ark_r1cs_std::prelude::*;
+use ark_relations::r1cs::ConstraintSystem;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::vec::Vec;
+use rand::SeedableRng;
+use rand_chacha::ChaCha20Rng;
+use rand_core::CryptoRng;
+use rand_core::RngCore;
+
 // =============================
 // circuit for the following statements
 // 1. both sender's and receiver's coins are well-formed
@@ -156,14 +170,14 @@ fn token_well_formed_circuit_helper(
     let result_var =
         PrivCoinCommitmentSchemeVar::commit(&parameters_var, &input_var, &randomness_var).unwrap();
 
-    // // circuit to compare the commited value with supplied value
-    // let k = PrivCoinCommitmentOutput::deserialize(pub_info.k.as_ref()).unwrap();
-    // let commitment_var2 =
-    //     PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
-    //         Ok(&k)
-    //     })
-    //     .unwrap();
-    // result_var.enforce_equal(&commitment_var2).unwrap();
+    // circuit to compare the commited value with supplied value
+    let k = PrivCoinCommitmentOutput::deserialize(pub_info.k.as_ref()).unwrap();
+    let commitment_var2 =
+        PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
+            Ok(k)
+        })
+        .unwrap();
+    result_var.enforce_equal(&commitment_var2).unwrap();
 
     // =============================
     // statement 2: cm = com(v||k, s)
@@ -190,23 +204,23 @@ fn token_well_formed_circuit_helper(
     // the other commitment
     let cm: PrivCoinCommitmentOutput =
         PrivCoinCommitmentOutput::deserialize(coin.cm_bytes.as_ref()).unwrap();
-    // // if the commitment is from the sender, then the commitment is hidden
-    // // else, it is public
-    // let commitment_var2 = if is_sender {
-    //     PrivCoinCommitmentOutputVar::new_witness(
-    //         ark_relations::ns!(cs, "gadget_commitment"),
-    //         || Ok(&cm),
-    //     )
-    //     .unwrap()
-    // } else {
-    //     PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
-    //         Ok(&cm)
-    //     })
-    //     .unwrap()
-    // };
+    // if the commitment is from the sender, then the commitment is hidden
+    // else, it is public
+    let commitment_var2 = if is_sender {
+        PrivCoinCommitmentOutputVar::new_witness(
+            ark_relations::ns!(cs, "gadget_commitment"),
+            || Ok(cm),
+        )
+        .unwrap()
+    } else {
+        PrivCoinCommitmentOutputVar::new_input(ark_relations::ns!(cs, "gadget_commitment"), || {
+            Ok(cm)
+        })
+        .unwrap()
+    };
 
-    // // circuit to compare the commited value with supplied value
-    // result_var.enforce_equal(&commitment_var2).unwrap();
+    // circuit to compare the commited value with supplied value
+    result_var.enforce_equal(&commitment_var2).unwrap();
 }
 
 fn prf_circuit_helper(
@@ -278,4 +292,82 @@ fn merkle_membership_circuit_proof(
         .unwrap()
         .enforce_equal(&Boolean::TRUE)
         .unwrap();
+}
+
+#[test]
+fn test_zkp() {
+    let hash_param_seed = [1u8; 32];
+    let commit_param_seed = [2u8; 32];
+
+    let mut rng = ChaCha20Rng::from_seed(commit_param_seed);
+    let commit_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
+
+    let mut rng = ChaCha20Rng::from_seed(hash_param_seed);
+    let hash_param = Hash::setup(&mut rng).unwrap();
+
+    // let vk_bytes = manta_zkp_vk_gen(&hash_param_seed, &commit_param_seed);
+    // let vk = Groth16VK::deserialize(vk_bytes.as_ref()).unwrap();
+    // let pvk = Groth16PVK::from(vk);
+
+    // receiver
+    let mut sk = [0u8; 32];
+    rng.fill_bytes(&mut sk);
+    let (sender, sender_pub_info, sender_priv_info) = make_coin(&commit_param, sk, 100, &mut rng);
+
+    // receiver
+    let mut sk = [0u8; 32];
+    rng.fill_bytes(&mut sk);
+    let (receiver, receiver_pub_info, _receiver_priv_info) =
+        make_coin(&commit_param, sk, 100, &mut rng);
+
+    let circuit = TransferCircuit {
+        commit_param,
+        hash_param,
+        sender_coin: sender.clone(),
+        sender_pub_info: sender_pub_info.clone(),
+        sender_priv_info: sender_priv_info.clone(),
+        receiver_coin: receiver.clone(),
+        receiver_pub_info: receiver_pub_info.clone(),
+        list: Vec::new(),
+    };
+
+    let sanity_cs = ConstraintSystem::<Fq>::new_ref();
+    circuit
+        .clone()
+        .generate_constraints(sanity_cs.clone())
+        .unwrap();
+    assert!(sanity_cs.is_satisfied().unwrap());
+
+    let pk = generate_random_parameters::<Bls12_381, _, _>(circuit.clone(), &mut rng).unwrap();
+    let proof = create_random_proof(circuit, &pk, &mut rng).unwrap();
+    let pvk = Groth16PVK::from(pk.vk.clone());
+
+    let k_old = PrivCoinCommitmentOutput::deserialize(sender_pub_info.k.as_ref()).unwrap();
+    let k_new = PrivCoinCommitmentOutput::deserialize(receiver_pub_info.k.as_ref()).unwrap();
+    let cm_new = PrivCoinCommitmentOutput::deserialize(receiver.cm_bytes.as_ref()).unwrap();
+
+
+    // format the input to the verification
+    let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
+
+    for e in sender_priv_info.sn.iter() {
+        let mut f = *e;
+        for _ in 0..8 {
+            inputs.push((f & 0b1).into());
+            f = f >> 1;
+        }
+    }
+
+    for e in sender.pk.iter() {
+        let mut f = *e;
+        for _ in 0..8 {
+            inputs.push((f & 0b1).into());
+            f = f >> 1;
+        }
+    }
+    println!("input len: {:?}", pvk.vk.gamma_abc_g1.len() - 1);
+
+    assert!(verify_proof(&pvk, &proof, &inputs[..]).unwrap())
+
+    // assert!(manta_verify_zkp());
 }
