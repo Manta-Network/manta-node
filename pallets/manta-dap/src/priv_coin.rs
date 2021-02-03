@@ -92,6 +92,7 @@ pub struct Manta;
 #[allow(dead_code)]
 pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 64] {
     let mut res = [0u8; 64];
+
     cm.serialize(res.as_mut()).unwrap();
     res
 }

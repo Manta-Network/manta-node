@@ -102,12 +102,14 @@ mod priv_coin;
 mod zkp;
 mod zkp_types;
 
+
 // use frame_system::Module;
 use ark_std::vec::Vec;
 use frame_support::codec::{Decode, Encode};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{StaticLookup, Zero};
+
 
 /// a MantaCoin is a pair of commitment cm and ciphertext c, where
 ///  * cm = com(v||k, s), commits to the value, and
@@ -130,12 +132,14 @@ impl Default for MantaCoin {
     }
 }
 
+
 /// the state of the ledger is a root of the merkle tree
 /// where the leafs are the MantaCoins
 #[derive(Encode, Decode, Clone, PartialEq)]
 pub struct MantaLedgerState {
     pub(crate) state: [u8; 64],
 }
+
 impl Default for MantaLedgerState {
     fn default() -> Self {
         Self { state: [0u8; 64] }
@@ -385,6 +389,7 @@ decl_storage! {
         /// List of sns
         pub SNList get(fn sn_list): Vec<[u8; 32]>;
 
+
         /// List of Coins that has ever been created
         pub CoinList get(fn coin_list): Vec<MantaCoin>;
 
@@ -402,6 +407,7 @@ decl_storage! {
 
         /// verification key for zero-knowledge proof
         pub ZKPVerificationKey get(fn zkp_vk): Vec<u8>;
+
     }
 }
 
