@@ -43,14 +43,20 @@ pub fn manta_prf(nonce: &[u8; 32], payload: &[u8]) -> [u8;32] {
 }
 
 /// commitment scheme that is used in Manta
-pub fn manta_commit(commit_param: &PrivCoinCommitmentParam, payload: &[u8]) -> ([u8; 32], PrivCoinCommitmentOutput) {
+/// commit_param: commitment parameter
+/// payload: commitment payload
+/// returns (r_bytes, comm_bytes), where r_bytes is the serialized nonce, 
+///     comm_bytes is the serialized commitment.
+pub fn manta_commit(commit_param: &PrivCoinCommitmentParam, payload: &[u8]) -> ([u8; 32], [u8; 32]) {
     let mut rng = rand::thread_rng();
     let r = Fr::rand(&mut rng);
     let mut r_bytes = [0u8; 32];
     r.serialize(r_bytes.as_mut()).unwrap();
     let r = Randomness(r);
     let comm = PrivCoinCommitmentScheme::commit(&commit_param, &payload, &r).unwrap();
-    (r_bytes, comm)
+    let mut comm_bytes = [0u8; 32];
+    comm.serialize(comm_bytes.as_mut()).unwrap();
+    (r_bytes, comm_bytes)
 }
 
 // pub struct Coin {
@@ -72,10 +78,10 @@ fn main() {
     println!("generating manta (pk,sk) pair ......");
     println!("pk: {}, sk: {}", BASE64.encode(&pk), BASE64.encode(&sk));
     // 2. do the setup the same as the ledger
-    let hash_param_seed = [1u8; 32];
+    //let hash_param_seed = [1u8; 32];
     let commit_param_seed = [2u8; 32];
-    let vk = dap_setup(&hash_param_seed, &commit_param_seed);
-    let pvk = Groth16PVK::from(vk);
+    //let vk = dap_setup(&hash_param_seed, &commit_param_seed);
+    //let pvk = Groth16PVK::from(vk);
     println!("public parameter for zkp generated ......");
     // 3. generate mint txn
     // prepare amount, rho, k, s, cm, and sn
@@ -84,7 +90,19 @@ fn main() {
     rng.fill_bytes(&mut rho);
     // compute sn
     let sn = manta_prf(&sk, &rho);
+    // k = comm(pk||rho, r)
     let comm_params = deseralize_commit_params(&commit_param_seed);
-    let (coin, pub_info, priv_info) = make_coin(&comm_params, sk, args.amount, &mut rng);
-
+    let payload = [pk, rho].concat();
+    let (r, k) = manta_commit(&comm_params, &payload);
+    // cm = comm(v||k, s)
+    let vandk = [args.amount.to_le_bytes().as_ref(), k.clone().as_ref()].concat();
+    let (s, cm) = manta_commit(&comm_params, &vandk);
+    println!("generated mint txns:");
+    println!("rho (private): {}", BASE64.encode(&rho));
+    println!("sn (private): {}", BASE64.encode(&sn));
+    println!("r (private): {}", BASE64.encode(&r));
+    println!("amount: {}", args.amount);
+    println!("k: {}", BASE64.encode(&k));
+    println!("s: {}", BASE64.encode(&s));
+    println!("cm: {}", BASE64.encode(&cm));
 }
