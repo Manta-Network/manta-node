@@ -98,6 +98,7 @@ extern crate rand_chacha;
 // extern crate sha2;
 
 pub mod dap_setup;
+pub mod param;
 pub mod priv_coin;
 pub mod types;
 pub mod zkp;
@@ -140,17 +141,17 @@ decl_module! {
             //  * hash parameter seed: [1u8; 32]
             //  * commitment parameter seed: [2u8; 32]
             // We may want to pass those two in for `init`
-            let hash_param_seed = [1u8; 32];
-            let commit_param_seed = [2u8; 32];
+            let hash_param_seed = param::HASHPARAMSEED;
+            let commit_param_seed = param::COMMITPARAMSEED;
 
 
             // generate the ZKP verification key and push it to the ledger storage
             // note: for prototype, we use this function to generate the ZKP verification key
             // for product we should use a MPC protocol to build the ZKP verification key
             // and then depoly that vk
-            let zkp_key = priv_coin::manta_zkp_key_gen(&hash_param_seed, &commit_param_seed);
-            ZKPKey::put(zkp_key);
-
+            // let zkp_key = priv_coin::manta_zkp_key_gen(&hash_param_seed, &commit_param_seed);
+            // ZKPKey::put(zkp_key);
+            ZKPKey::put(param::VKBYTES.to_vec());
 
             <Balances<T>>::insert(&origin, total);
             <TotalSupply>::put(total);
@@ -272,14 +273,14 @@ decl_module! {
             coin_list.push(coin_new);
 
             // get the verification key from the ledger
-            let key_bytes = ZKPKey::get();
+            let vk_bytes = ZKPKey::get();
 
             // get the ledger state from the ledger
             let state = LedgerState::get();
 
             // check validity of zkp
             ensure!(
-                priv_coin::manta_verify_zkp(key_bytes, proof, sn_old, k_old, k_new, cm_new, state.state),
+                priv_coin::manta_verify_zkp(vk_bytes, proof, sn_old, k_old, k_new, cm_new, state.state),
                 <Error<T>>::ZKPFail,
             );
 
@@ -386,10 +387,12 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use crate::zkp::TransferCircuit;
+    use ark_bls12_381::Bls12_381;
     use ark_crypto_primitives::CommitmentScheme;
     use ark_crypto_primitives::FixedLengthCRH;
     use ark_ed_on_bls12_381::Fq;
     use ark_groth16::create_random_proof;
+    use ark_groth16::generate_random_parameters;
     use ark_relations::r1cs::ConstraintSynthesizer;
     use ark_relations::r1cs::ConstraintSystem;
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -465,8 +468,8 @@ mod tests {
             assert_eq!(Assets::balance(1), 100);
             let com_param_seed = CommitParamSeed::get();
             let hash_param_seed = HashParamSeed::get();
-            assert_eq!(com_param_seed, [2u8; 32]);
-            assert_eq!(hash_param_seed, [1u8; 32]);
+            assert_eq!(com_param_seed, param::COMMITPARAMSEED);
+            assert_eq!(hash_param_seed, param::HASHPARAMSEED);
         });
     }
 
@@ -561,9 +564,14 @@ mod tests {
                 .unwrap();
             assert!(sanity_cs.is_satisfied().unwrap());
 
-            let proving_key_bytes = ZKPKey::get();
-            let proving_key = Groth16PK::deserialize(proving_key_bytes.as_ref()).unwrap();
-            let proof = create_random_proof(circuit, &proving_key, &mut rng).unwrap();
+            let mut rng = ChaCha20Rng::from_seed(crate::param::ZKPPARAMSEED);
+            let pk =
+                generate_random_parameters::<Bls12_381, _, _>(circuit.clone(), &mut rng).unwrap();
+            let proof = create_random_proof(circuit, &pk, &mut rng).unwrap();
+            let vk_bytes = ZKPKey::get();
+            let vk = Groth16VK::deserialize(vk_bytes.as_ref()).unwrap();
+            assert_eq!(pk.vk, vk);
+
             let mut proof_bytes = [0u8; 196];
             proof.serialize(proof_bytes.as_mut()).unwrap();
 

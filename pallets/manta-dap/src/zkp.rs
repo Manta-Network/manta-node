@@ -308,8 +308,8 @@ fn test_zkp_local() {
     use rand_chacha::ChaCha20Rng;
     use rand_core::RngCore;
 
-    let hash_param_seed = [1u8; 32];
-    let commit_param_seed = [2u8; 32];
+    let hash_param_seed = crate::param::HASHPARAMSEED;
+    let commit_param_seed = crate::param::HASHPARAMSEED;
 
     let mut rng = ChaCha20Rng::from_seed(commit_param_seed);
     let commit_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
@@ -346,7 +346,15 @@ fn test_zkp_local() {
         .unwrap();
     assert!(sanity_cs.is_satisfied().unwrap());
 
+    let mut rng = ChaCha20Rng::from_seed(crate::param::ZKPPARAMSEED);
     let pk = generate_random_parameters::<Bls12_381, _, _>(circuit.clone(), &mut rng).unwrap();
+    // let vk = Groth16VK::deserialize(crate::param::VKBYTES.as_ref()).unwrap();
+    // assert_eq!(pk.vk, vk);
+    // let mut bytes: Vec<u8> = Vec::new();
+    // pk.vk.serialize(&mut bytes).unwrap();
+    // assert_eq!(bytes[..].as_ref(), crate::param::VKBYTES.as_ref());
+
+
     let proof = create_random_proof(circuit, &pk, &mut rng).unwrap();
     let pvk = Groth16PVK::from(pk.vk.clone());
 
@@ -374,8 +382,8 @@ fn test_zkp_interface() {
     use rand_chacha::ChaCha20Rng;
     use rand_core::RngCore;
 
-    let hash_param_seed = [1u8; 32];
-    let commit_param_seed = [2u8; 32];
+    let hash_param_seed = crate::param::HASHPARAMSEED;
+    let commit_param_seed = crate::param::COMMITPARAMSEED;
 
     let mut rng = ChaCha20Rng::from_seed(commit_param_seed);
     let commit_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
@@ -420,10 +428,9 @@ fn test_zkp_interface() {
     proof.serialize(proof_bytes.as_mut()).unwrap();
 
     assert!(manta_verify_zkp(
-        key_bytes,
+        crate::param::VKBYTES.to_vec(),
         proof_bytes,
         sender_priv_info.sn,
-        // sender.pk,
         sender_pub_info.k,
         receiver_pub_info.k,
         receiver.cm_bytes,
