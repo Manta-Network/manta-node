@@ -7,7 +7,7 @@ use rand_chacha::ChaCha20Rng;
 
 ///  Return a serialized PVK given hash_param_seed and commit_param_seed
 pub fn dap_setup(hash_param_seed: &[u8; 32], commit_param_seed: &[u8; 32]) -> Groth16VK {
-    let vk_bytes = manta_zkp_vk_gen(hash_param_seed, commit_param_seed);
+    let vk_bytes = manta_zkp_key_gen(hash_param_seed, commit_param_seed);
     Groth16VK::deserialize(vk_bytes.as_ref()).unwrap()
 }
 
