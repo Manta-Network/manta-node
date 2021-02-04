@@ -122,6 +122,7 @@ pub fn manta_zkp_key_gen(hash_param_seed: &[u8; 32], commit_param_seed: &[u8; 32
         .unwrap();
     assert!(sanity_cs.is_satisfied().unwrap());
 
+    let mut rng = ChaCha20Rng::from_seed(crate::param::ZKPPARAMSEED);
     let pk = generate_random_parameters::<Bls12_381, _, _>(circuit, &mut rng).unwrap();
     let mut pk_bytes: Vec<u8> = Vec::new();
 
@@ -138,8 +139,8 @@ pub fn manta_verify_zkp(
     cm_new: [u8; 32],
     _merkle_root: [u8; 32],
 ) -> bool {
-    let pk = Groth16PK::deserialize(key_bytes.as_ref()).unwrap();
-    let pvk = Groth16PVK::from(pk.vk);
+    let vk = Groth16VK::deserialize(key_bytes.as_ref()).unwrap();
+    let pvk = Groth16PVK::from(vk);
     let proof = Groth16Proof::deserialize(proof.as_ref()).unwrap();
     let k_old = PrivCoinCommitmentOutput::deserialize(k_old.as_ref()).unwrap();
     let k_new = PrivCoinCommitmentOutput::deserialize(k_new.as_ref()).unwrap();
