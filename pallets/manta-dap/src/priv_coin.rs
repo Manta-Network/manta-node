@@ -132,7 +132,7 @@ pub fn manta_zkp_key_gen(hash_param_seed: &[u8; 32], commit_param_seed: &[u8; 32
 
 pub fn manta_verify_zkp(
     key_bytes: Vec<u8>,
-    proof: [u8; 196],
+    proof: [u8; 192],
     sn_old: [u8; 32],
     k_old: [u8; 32],
     k_new: [u8; 32],

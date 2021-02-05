@@ -253,7 +253,7 @@ decl_module! {
             cm_new: [u8; 32],
             // todo: amount shall be an encrypted
             amount: u64,
-            proof: [u8; 196]
+            proof: [u8; 192]
         ) {
 
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
@@ -667,7 +667,7 @@ mod tests {
             let vk = Groth16VK::deserialize(vk_bytes.as_ref()).unwrap();
             assert_eq!(pk.vk, vk);
 
-            let mut proof_bytes = [0u8; 196];
+            let mut proof_bytes = [0u8; 192];
             proof.serialize(proof_bytes.as_mut()).unwrap();
 
             // make the transfer
