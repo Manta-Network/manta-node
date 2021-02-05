@@ -202,9 +202,11 @@ decl_module! {
             s_encoded: Vec<u8>,
             cm_encoded: Vec<u8>
         ) {
+            
             // get the original balance
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
+            Self::deposit_event(RawEvent::Dump([1, 2, 3].to_vec()));
 
             
             let origin_account = origin.clone();
@@ -212,8 +214,9 @@ decl_module! {
             let origin_balance = <Balances<T>>::get(&origin_account);
             ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
 
-
+            Self::deposit_event(RawEvent::Dump([4, 5, 6].to_vec()));
             let k_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
+            Self::deposit_event(RawEvent::Dump([1, 2, 3].to_vec()));
             let s_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
             let cm_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
             let mut k = [0u8; 32];
@@ -223,7 +226,7 @@ decl_module! {
             k.copy_from_slice(k_vec[0..32].as_ref());
             s.copy_from_slice(s_vec[0..32].as_ref());
             cm.copy_from_slice(cm_vec[0..32].as_ref());
-
+            Self::deposit_event(RawEvent::Dump([1, 2, 3].to_vec()));
 
             // get the parameter seeds from the ledger
             let hash_param_seed = HashParamSeed::get();
@@ -256,12 +259,14 @@ decl_module! {
             let new_state = priv_coin::merkle_root(&hash_param_seed, &coin_list);
 
             // write back to ledger storage
-            // Self::deposit_event(RawEvent::Dump([1,2,3].to_vec()));
+            Self::deposit_event(RawEvent::Dump([1,2,3].to_vec()));
             Self::deposit_event(RawEvent::Minted(origin, amount));
             CoinList::put(coin_list);
             LedgerState::put(new_state);
             let old_pool_balance = PoolBalance::get();
             PoolBalance::put(old_pool_balance + amount);
+            Self::deposit_event(RawEvent::Dump([1, 2, 3].to_vec()));
+            <Balances<T>>::insert(origin_account, origin_balance - amount);
         }
 
 
@@ -330,8 +335,8 @@ decl_event! {
         Minted(AccountId, u64),
         /// Private transfer
         PrivateTransferred(AccountId),
-        // /// Dump to the frontend
-        // Dump(Vec<u8>),
+        /// Dump to the frontend
+        Dump(Vec<u8>),
     }
 }
 
@@ -354,7 +359,9 @@ decl_error! {
         /// MantaCoin already spend
         MantaCoinSpent,
         /// ZKP verification failed
-        ZKPFail
+        ZKPFail,
+        /// Decoding error
+        Base64DecoderFail
     }
 }
 
