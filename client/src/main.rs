@@ -7,11 +7,9 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use data_encoding::BASE64;
 use pallet_manta_dap::dap_setup::*;
-use pallet_manta_dap::priv_coin::*;
 use pallet_manta_dap::types::*;
 use rand::RngCore;
 use rand::SeedableRng;
-use rand_core::CryptoRng;
 use rand_chacha::ChaCha20Rng;
 use structopt::StructOpt;
 
@@ -98,7 +96,7 @@ fn main() {
     let vandk = [args.amount.to_le_bytes().as_ref(), k.clone().as_ref()].concat();
     let (s, cm) = manta_commit(&comm_params, &vandk);
     println!("generated mint txns:");
-    println!("rho (private): {}", BASE64.encode(&rho));
+    println!("rho (private): {:?}", rho);
     println!("sn (private): {}", BASE64.encode(&sn));
     println!("r (private): {}", BASE64.encode(&r));
     println!("amount: {}", args.amount);
