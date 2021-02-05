@@ -74,7 +74,8 @@ fn main() {
     // 1. generate key pair
     let (pk, sk) = manta_keygen(&seed);
     println!("generating manta (pk,sk) pair ......");
-    println!("pk: {}, sk: {}", BASE64.encode(&pk), BASE64.encode(&sk));
+    println!("your manta pk: {}", BASE64.encode(&pk));
+    println!("your manta sk (private): {}", BASE64.encode(&sk));
     // 2. do the setup the same as the ledger
     //let hash_param_seed = [1u8; 32];
     let commit_param_seed = [2u8; 32];
