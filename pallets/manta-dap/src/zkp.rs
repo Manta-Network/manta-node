@@ -354,7 +354,6 @@ fn test_zkp_local() {
     // pk.vk.serialize(&mut bytes).unwrap();
     // assert_eq!(bytes[..].as_ref(), crate::param::VKBYTES.as_ref());
 
-
     let proof = create_random_proof(circuit, &pk, &mut rng).unwrap();
     let pvk = Groth16PVK::from(pk.vk.clone());
 
@@ -424,7 +423,7 @@ fn test_zkp_interface() {
     assert!(sanity_cs.is_satisfied().unwrap());
 
     let proof = create_random_proof(circuit, &pk, &mut rng).unwrap();
-    let mut proof_bytes = [0u8; 196];
+    let mut proof_bytes = [0u8; 192];
     proof.serialize(proof_bytes.as_mut()).unwrap();
 
     assert!(manta_verify_zkp(

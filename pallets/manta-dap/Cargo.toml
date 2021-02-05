@@ -40,7 +40,8 @@ ark-serialize = { git = "https://github.com/arkworks-rs/algebra", default-featur
 [dev-dependencies]
 sp-core = { version = "2.0.1", default-features = false }
 sp-io = { version = "2.0.1", default-features = false }
-
+# data encoding is only used for testing
+data-encoding = { version = "2.3.2", default-features = false, features = [ "alloc" ] }
 
 [features]
 default = ["std"]

@@ -1,0 +1,45 @@
+{
+    "coin_1": {
+        "cm": "XzoWOzhp6rXjQ/HDEN6jSLsLs64hKXWUNuFVtCUq0AA=",
+        "value": 10,
+        "pk": "rgnbfNVPQrSQ7wm2vFQa9ojklZu4xT81mm9W44q0VKM=",
+        "rho": "OuJIq6UGqFa+yy22MYUfN/l9lM4XUzXLnL9WCAyFaFE=",
+        "s": "xsPXqMXA1SKMOehtsgVWV8xw9Mj0rh3O8Yt1ZHJzaQ4=",
+        "r": "DYcuigV3e6U72Of6fOpuzWZt9DtyGGA1By8O/O7JcAo=",
+        "k": "+tMTpSikpdACxuDGZTl5pxwT7tpYcX/DFKJRZ1oLfqc=",
+        "sk": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "sn": "jqhzAPanABquT0CpMC2aFt2ze8+UqMUcUG6PZBmqFqE="
+    },
+    "coin_2": {
+        "cm": "3Oye4AqhzdysdWdCzMcoImTnYNGd21OmF8ztph4dRqI=",
+        "value": 100,
+        "pk": "1RjrtNh0HEFYoswGFwhCcNbv8oalJ6z3QYKbAmGTDjk=",
+        "rho": "EMlWyi/zMxuByhDxmpn1C7AAWxJjKIIpHSnRMqQWNk0=",
+        "s": "/KTVGbHHU8UVHLS6h54470DtjwF6MHvBkG2bKxpyBQc=",
+        "r": "SEEugW5YAvyxQ+z5fry09M2jGqw8QvuyDuo+3278VQs=",
+        "k": "CutG9BBbkJMpBkbYTVX37HWunGcxHyy8+Eb1xRT9eVM=",
+        "sk": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+        "sn": "EdHWc+HAgRWlcJrK8dlVnewSCTwEDPZFa8iYKxoRdOY="
+    },
+    "coin_3": {
+        "cm": "1zuOv92V7e1qX1bP7+QNsV+gW5E3xUsghte/lZ7h5pg=",
+        "value": 10,
+        "pk": "TkdKMB3vtMwFSe7LxnILv6AMHCbpAtg7ud8pJrU4m0w=",
+        "rho": "tDR8hvutvJiI+IedIwwG7D22exdKWw10Rm2H8K3rsjw=",
+        "s": "LlXIi0kLQhSZ2SD0JaeckxgIiFuCaFbJh1IyI3675gw=",
+        "r": "ZfWQLar9ZHoJPIWLlmUYKLgLs5MUC4ZN3CMjDjnxpgk=",
+        "k": "2HbWGQCLOfxuA4jOiDftBRSbjjAs/a0vjrq/H4p6QBI=",
+        "sk": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=",
+        "sn": "bwgOTJ8nNJ8phco73Zm6A8jV0ua6qsw9MtXtwyxV7cQ="
+    },
+    "transfer": {
+        "_comment": "transfer from coin 1 to coin 3",
+        "merkle_roots": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "sn_old": "jqhzAPanABquT0CpMC2aFt2ze8+UqMUcUG6PZBmqFqE=",
+        "k_old": "+tMTpSikpdACxuDGZTl5pxwT7tpYcX/DFKJRZ1oLfqc=",
+        "k_new": "2HbWGQCLOfxuA4jOiDftBRSbjjAs/a0vjrq/H4p6QBI=",
+        "cm_new": "XzoWOzhp6rXjQ/HDEN6jSLsLs64hKXWUNuFVtCUq0AA=",
+        "value": 10,
+        "proof": "SteTxuxdE9nhB7CszCgCrEarKCv4GE8toATEgMmmdgGcp6D5EEo47Jcb9f0R2UKEK7ZCZv9HBBbvwzCVfSYysx91axKSHvW5dD0tj0UkNTh0DbDDa5Tsr5HY46nKSQIUDEM3jZsNTPI8BoEbKLMfGFU+IIpugjim7iIvXF71MIM9x2Ts4oRRZGJ24KaYBvcRgvKUNtSN8OyoYdSBfk9Kp5rb5FtkyWzYQYQLV1zXI6pJkwSVaH0i0ttInnxOYlWN"
+    }
+}
