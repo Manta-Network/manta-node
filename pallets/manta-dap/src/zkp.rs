@@ -354,7 +354,6 @@ fn test_zkp_local() {
     // pk.vk.serialize(&mut bytes).unwrap();
     // assert_eq!(bytes[..].as_ref(), crate::param::VKBYTES.as_ref());
 
-
     let proof = create_random_proof(circuit, &pk, &mut rng).unwrap();
     let pvk = Groth16PVK::from(pk.vk.clone());
 

@@ -91,6 +91,7 @@ extern crate ark_relations;
 extern crate ark_serialize;
 extern crate ark_std;
 extern crate rand_chacha;
+extern crate data_encoding;
 // extern crate blake2;
 // extern crate ed25519_dalek;
 // extern crate rand;
@@ -109,6 +110,7 @@ use ark_std::vec::Vec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{StaticLookup, Zero};
+use data_encoding::BASE64;
 
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
@@ -172,7 +174,7 @@ decl_module! {
         #[weight = 0]
         fn transfer(origin,
             target: <T::Lookup as StaticLookup>::Source,
-            amount: u64
+            amount: u64,
         ) {
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
@@ -185,6 +187,9 @@ decl_module! {
             Self::deposit_event(RawEvent::Transferred(origin, target.clone(), amount));
             <Balances<T>>::insert(origin_account, origin_balance - amount);
             <Balances<T>>::mutate(target, |balance| *balance += amount);
+            // let pool = PoolBalance::get();
+            // Self::deposit_event(RawEvent::Dump(input));
+            // Self::deposit_event(RawEvent::Dump(pool.to_le_bytes().to_vec()));
         }
 
         /// Mint
@@ -193,17 +198,32 @@ decl_module! {
         #[weight = 0]
         fn mint(origin,
             amount: u64,
-            k: [u8; 32],
-            s: [u8; 32],
-            cm: [u8; 32]
+            k_encoded: Vec<u8>,
+            s_encoded: Vec<u8>,
+            cm_encoded: Vec<u8>
         ) {
             // get the original balance
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
+
+            
             let origin_account = origin.clone();
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
             let origin_balance = <Balances<T>>::get(&origin_account);
             ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
+
+
+            // let k_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
+            // let s_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
+            // let cm_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
+            let mut k = [0u8; 32];
+            let mut s = [0u8; 32];
+            let mut cm = [0u8; 32];
+
+            // k.copy_from_slice(k_vec[0..32].as_ref());
+            // s.copy_from_slice(s_vec[0..32].as_ref());
+            // cm.copy_from_slice(cm_vec[0..32].as_ref());
+
 
             // get the parameter seeds from the ledger
             let hash_param_seed = HashParamSeed::get();
@@ -233,6 +253,7 @@ decl_module! {
             let new_state = priv_coin::merkle_root(&hash_param_seed, &coin_list);
 
             // write back to ledger storage
+            // Self::deposit_event(RawEvent::Dump([1,2,3].to_vec()));
             Self::deposit_event(RawEvent::Minted(origin, amount));
             CoinList::put(coin_list);
             LedgerState::put(new_state);
@@ -306,6 +327,8 @@ decl_event! {
         Minted(AccountId, u64),
         /// Private transfer
         PrivateTransferred(AccountId),
+        /// Dump to the frontend
+        Dump(Vec<u8>),
     }
 }
 

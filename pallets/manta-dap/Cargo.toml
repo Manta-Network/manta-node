@@ -36,6 +36,8 @@ ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", default-features
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std", default-features = false }
 ark-relations = { git = "https://github.com/arkworks-rs/snark", default-features = false }
 ark-serialize = { git = "https://github.com/arkworks-rs/algebra", default-features = false, features = [ "derive" ] }
+data-encoding = "2.3.2"
+
 
 [dev-dependencies]
 sp-core = { version = "2.0.1", default-features = false }
