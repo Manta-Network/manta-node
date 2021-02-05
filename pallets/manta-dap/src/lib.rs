@@ -387,6 +387,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::*;
     use crate::zkp::TransferCircuit;
     use ark_bls12_381::Bls12_381;
     use ark_crypto_primitives::CommitmentScheme;
@@ -397,6 +398,7 @@ mod tests {
     use ark_relations::r1cs::ConstraintSynthesizer;
     use ark_relations::r1cs::ConstraintSystem;
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use data_encoding::BASE64;
     use frame_support::{
         assert_noop, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
     };
@@ -471,6 +473,98 @@ mod tests {
             let hash_param_seed = HashParamSeed::get();
             assert_eq!(com_param_seed, param::COMMITPARAMSEED);
             assert_eq!(hash_param_seed, param::HASHPARAMSEED);
+        });
+    }
+
+    #[test]
+    fn test_mint_hardcode_should_work() {
+        new_test_ext().execute_with(|| {
+            assert_ok!(Assets::init(Origin::signed(1), 1000));
+            assert_eq!(Assets::balance(1), 1000);
+            assert_eq!(PoolBalance::get(), 0);
+
+            let mut k_bytes = [0u8; 32];
+            let k_vec = BASE64
+                .decode(b"+tMTpSikpdACxuDGZTl5pxwT7tpYcX/DFKJRZ1oLfqc=")
+                .unwrap();
+            k_bytes.copy_from_slice(k_vec[0..32].as_ref());
+
+            let mut s_bytes = [0u8; 32];
+            let s_vec = BASE64
+                .decode(b"xsPXqMXA1SKMOehtsgVWV8xw9Mj0rh3O8Yt1ZHJzaQ4=")
+                .unwrap();
+            s_bytes.copy_from_slice(s_vec[0..32].as_ref());
+
+            let mut cm_bytes = [0u8; 32];
+            let cm_vec = BASE64
+                .decode(b"XzoWOzhp6rXjQ/HDEN6jSLsLs64hKXWUNuFVtCUq0AA=")
+                .unwrap();
+            cm_bytes.copy_from_slice(cm_vec[0..32].as_ref());
+
+            let value = 10;
+
+            let coin = MantaCoin {
+                cm_bytes: cm_bytes.clone(),
+                value,
+            };
+
+            assert_ok!(Assets::mint(
+                Origin::signed(1),
+                10,
+                k_bytes,
+                s_bytes,
+                cm_bytes
+            ));
+
+            assert_eq!(TotalSupply::get(), 1000);
+            assert_eq!(PoolBalance::get(), 10);
+            let coin_list = CoinList::get();
+            assert_eq!(coin_list.len(), 1);
+            assert_eq!(coin_list[0], coin);
+
+
+            let mut k_bytes = [0u8; 32];
+            let k_vec = BASE64
+                .decode(b"CutG9BBbkJMpBkbYTVX37HWunGcxHyy8+Eb1xRT9eVM=")
+                .unwrap();
+            k_bytes.copy_from_slice(k_vec[0..32].as_ref());
+
+            let mut s_bytes = [0u8; 32];
+            let s_vec = BASE64
+                .decode(b"/KTVGbHHU8UVHLS6h54470DtjwF6MHvBkG2bKxpyBQc=")
+                .unwrap();
+            s_bytes.copy_from_slice(s_vec[0..32].as_ref());
+
+            let mut cm_bytes = [0u8; 32];
+            let cm_vec = BASE64
+                .decode(b"3Oye4AqhzdysdWdCzMcoImTnYNGd21OmF8ztph4dRqI=")
+                .unwrap();
+            cm_bytes.copy_from_slice(cm_vec[0..32].as_ref());
+
+            let value = 100;
+
+            let coin = MantaCoin {
+                cm_bytes: cm_bytes.clone(),
+                value,
+            };
+
+            assert_ok!(Assets::mint(
+                Origin::signed(1),
+                100,
+                k_bytes,
+                s_bytes,
+                cm_bytes
+            ));
+
+            assert_eq!(TotalSupply::get(), 1000);
+            assert_eq!(PoolBalance::get(), 110);
+            let coin_list = CoinList::get();
+            assert_eq!(coin_list.len(), 2);
+            assert_eq!(coin_list[1], coin);
+
+
+            let sn_list = SNList::get();
+            assert_eq!(sn_list.len(), 0);
         });
     }
 

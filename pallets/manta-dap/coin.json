@@ -1,0 +1,25 @@
+{
+    "coin_a": {
+        "value": 10,
+        "k_encoded": "+tMTpSikpdACxuDGZTl5pxwT7tpYcX/DFKJRZ1oLfqc=",
+        "s_encoded": "xsPXqMXA1SKMOehtsgVWV8xw9Mj0rh3O8Yt1ZHJzaQ4=",
+        "cm_encoded": "XzoWOzhp6rXjQ/HDEN6jSLsLs64hKXWUNuFVtCUq0AA=",
+        "sn_encoded": "jqhzAPanABquT0CpMC2aFt2ze8+UqMUcUG6PZBmqFqE="
+    },
+    "coin_b": {
+        "value": 100,
+        "k_encoded": "CutG9BBbkJMpBkbYTVX37HWunGcxHyy8+Eb1xRT9eVM=",
+        "s_encoded": "/KTVGbHHU8UVHLS6h54470DtjwF6MHvBkG2bKxpyBQc=",
+        "cm_encoded": "3Oye4AqhzdysdWdCzMcoImTnYNGd21OmF8ztph4dRqI=",
+        "sn_encoded": "EdHWc+HAgRWlcJrK8dlVnewSCTwEDPZFa8iYKxoRdOY="
+    },
+    "transfer": {
+        "merkle_root": [u8; 32],
+        "sn_old": [u8; 32],
+        "k_old": [u8; 32],
+        "k_new": [u8; 32],
+        "cm_new": [u8; 32],   
+        "amount": u64,
+        "proof": [u8; 196]
+    }
+}
