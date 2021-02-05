@@ -238,6 +238,7 @@ decl_module! {
             LedgerState::put(new_state);
             let old_pool_balance = PoolBalance::get();
             PoolBalance::put(old_pool_balance + amount);
+            <Balances<T>>::insert(origin_account, origin_balance - amount);
         }
 
 
