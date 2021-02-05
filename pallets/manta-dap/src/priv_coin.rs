@@ -3,12 +3,14 @@ use crate::zkp::TransferCircuit;
 use crate::MantaCoin;
 use crate::MantaLedgerState;
 use ark_bls12_381::Bls12_381;
-use ark_crypto_primitives::commitment;
 use ark_crypto_primitives::commitment::pedersen::Randomness;
+use ark_crypto_primitives::prf::Blake2s;
+use ark_crypto_primitives::prf::PRF;
 use ark_crypto_primitives::CommitmentScheme;
 use ark_crypto_primitives::FixedLengthCRH;
 use ark_ed_on_bls12_381::Fq;
 use ark_ed_on_bls12_381::Fr;
+use ark_ff::ToConstraintField;
 use ark_ff::UniformRand;
 use ark_groth16::{generate_random_parameters, verify_proof};
 use ark_relations::r1cs::ConstraintSynthesizer;
@@ -19,8 +21,6 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use rand_core::CryptoRng;
 use rand_core::RngCore;
-// use ark_crypto_primitives::prf::Blake2s;
-// use ark_crypto_primitives::prf::PRF;
 
 #[allow(dead_code)]
 pub fn comm_encode(cm: &PrivCoinCommitmentOutput) -> [u8; 32] {
@@ -122,6 +122,7 @@ pub fn manta_zkp_key_gen(hash_param_seed: &[u8; 32], commit_param_seed: &[u8; 32
         .unwrap();
     assert!(sanity_cs.is_satisfied().unwrap());
 
+    let mut rng = ChaCha20Rng::from_seed(crate::param::ZKPPARAMSEED);
     let pk = generate_random_parameters::<Bls12_381, _, _>(circuit, &mut rng).unwrap();
     let mut pk_bytes: Vec<u8> = Vec::new();
 
@@ -138,8 +139,8 @@ pub fn manta_verify_zkp(
     cm_new: [u8; 32],
     _merkle_root: [u8; 32],
 ) -> bool {
-    let pk = Groth16PK::deserialize(key_bytes.as_ref()).unwrap();
-    let pvk = Groth16PVK::from(pk.vk);
+    let vk = Groth16VK::deserialize(key_bytes.as_ref()).unwrap();
+    let pvk = Groth16PVK::from(vk);
     let proof = Groth16Proof::deserialize(proof.as_ref()).unwrap();
     let k_old = PrivCoinCommitmentOutput::deserialize(k_old.as_ref()).unwrap();
     let k_new = PrivCoinCommitmentOutput::deserialize(k_new.as_ref()).unwrap();
@@ -147,28 +148,9 @@ pub fn manta_verify_zkp(
 
     // let _merkle_root = HashOutput::deserialize(merkle_root.as_ref()).unwrap();
 
-    // let inputs = [k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
-
-
     let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
-    // let mut inputs = Vec::new();
-    // for e in pk_old.iter() {
-    //     let mut f = *e;
-    //     for _ in 0..8 {
-    //         inputs.push((f & 0b1).into());
-    //         f = f >> 1;
-    //     }
-    // }
-
-
-    for e in sn_old.iter() {
-        let mut f = *e;
-        for _ in 0..8 {
-            inputs.push((f & 0b1).into());
-            f >>= 1;
-
-        }
-    }
+    let sn: Vec<Fq> = ToConstraintField::<Fq>::to_field_elements(sn_old.as_ref()).unwrap();
+    inputs = [inputs[..].as_ref(), sn.as_ref()].concat();
 
     verify_proof(&pvk, &proof, &inputs[..]).unwrap()
 }
@@ -183,24 +165,11 @@ pub fn make_coin<R: RngCore + CryptoRng>(
     let mut rho = [0u8; 32];
     rng.fill_bytes(&mut rho);
 
-    // =============================
-    // the follwoing code uses blake2s as an PRF
-    // we are using it as a commitment scheme for now
-    // // pk = PRF(sk, 0); which is also the address
-    // let pk = <Blake2s as PRF>::evaluate(&sk, &[0u8; 32]).unwrap();
-
-    // // sn = PRF(sk, rho)
-    // let sn = <Blake2s as PRF>::evaluate(&sk, &rho).unwrap();
-    // =============================
-
     // pk = PRF(sk, 0); which is also the address
-    let param = ();
-    let pk = <commitment::blake2s::Commitment as CommitmentScheme>::commit(&param, &[0u8; 32], &sk)
-        .unwrap();
+    let pk = <Blake2s as PRF>::evaluate(&sk, &[0u8; 32]).unwrap();
 
     // sn = PRF(sk, rho)
-    let sn =
-        <commitment::blake2s::Commitment as CommitmentScheme>::commit(&param, &rho, &sk).unwrap();
+    let sn = <Blake2s as PRF>::evaluate(&sk, &rho).unwrap();
 
     // k = com(pk||rho, r)
     let buf = [pk, rho].concat();

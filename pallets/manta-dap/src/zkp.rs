@@ -1,7 +1,8 @@
 use crate::types::*;
 use crate::MantaCoin;
-use ark_crypto_primitives::commitment;
 use ark_crypto_primitives::commitment::pedersen::Randomness;
+use ark_crypto_primitives::prf::blake2s::constraints::Blake2sGadget;
+use ark_crypto_primitives::prf::PRFGadget;
 use ark_crypto_primitives::CommitmentGadget;
 use ark_crypto_primitives::PathVar;
 use ark_ed_on_bls12_381::constraints::FqVar;
@@ -125,7 +126,8 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
 // circuit for the following statements
 // 1. k = com(pk||rho, r)
 // 2. cm = com(v||k, s)
-// where both k and cm are public
+// for the sender, the cm is hidden and k is public
+// for the receiver, both are public
 // =============================
 fn token_well_formed_circuit_helper(
     is_sender: bool,
@@ -208,91 +210,44 @@ fn token_well_formed_circuit_helper(
     result_var.enforce_equal(&commitment_var2).unwrap();
 }
 
-//=======================
-// FIXME: there seems to be an issue with arkworks Blake2s PRF circuit.
-// For now we will be using a commitment circuit.
-// We will revisit this later.
-//=======================
+/// a helper function to generate the prf circuit
+///     sender.pk = PRF(sender_sk, [0u8;32])
+///     sender.sn = PRF(sender_sk, rho)
+/// the output pk is hidden, while sn can be public
 fn prf_circuit_helper(
-    is_output_hided: bool,
+    is_output_hidden: bool,
     seed: &[u8; 32],
     input: &[u8; 32],
     output: &[u8; 32],
     cs: ConstraintSystemRef<Fq>,
 ) {
-    // step 0. Allocate Parameters for blake commitment
-    let param = ();
-    let param_var = <commitment::blake2s::constraints::CommGadget as CommitmentGadget<
-        commitment::blake2s::Commitment,
-        Fq,
-    >>::ParametersVar::new_witness(
-        ark_relations::ns!(cs, "gadget_parameters"), || Ok(&param)
-    )
-    .unwrap();
-
-    // step 1. Allocate seed, which will generate an open for the circuit
-    let mut open_var = Vec::new();
-    for r_byte in seed.iter() {
-        open_var.push(UInt8::new_witness(cs.clone(), || Ok(r_byte)).unwrap());
-    }
-    let open_var = commitment::blake2s::constraints::RandomnessVar(open_var);
+    // step 1. Allocate seed
+    let seed_var = Blake2sGadget::new_seed(cs.clone(), &seed);
 
     // step 2. Allocate inputs
-    let mut input_var = Vec::new();
-    for input_byte in input.iter() {
-        input_var.push(UInt8::new_witness(cs.clone(), || Ok(*input_byte)).unwrap());
-    }
+    let input_var = UInt8::new_witness_vec(ark_relations::ns!(cs, "declare_input"), input).unwrap();
 
     // step 3. Allocate evaluated output
-    let output_var = <commitment::blake2s::constraints::CommGadget as CommitmentGadget<
-        commitment::blake2s::Commitment,
-        Fq,
-    >>::commit(&param_var, &input_var, &open_var)
-    .unwrap();
+    let output_var = Blake2sGadget::evaluate(&seed_var, &input_var).unwrap();
 
-    // step 4. Actual output and make sure the outputs match
-    for (i, output_bytes) in output.iter().enumerate() {
-        let tmp = {
-            if is_output_hided {
-                UInt8::new_variable(cs.clone(), || Ok(output_bytes), AllocationMode::Witness)
-                    .unwrap()
-            } else {
-                UInt8::new_variable(cs.clone(), || Ok(output_bytes), AllocationMode::Input).unwrap()
-            }
-        };
-        tmp.enforce_equal(&output_var.0[i]).unwrap();
-    }
+    // step 4. Actual output
+    let actual_out_var = if is_output_hidden {
+        <Blake2sGadget as PRFGadget<_, Fq>>::OutputVar::new_witness(
+            ark_relations::ns!(cs, "declare_output"),
+            || Ok(output),
+        )
+        .unwrap()
+    } else {
+        <Blake2sGadget as PRFGadget<_, Fq>>::OutputVar::new_input(
+            ark_relations::ns!(cs, "declare_output"),
+            || Ok(output),
+        )
+        .unwrap()
+    };
+
+    // step 5. compare the outputs
+    output_var.enforce_equal(&actual_out_var).unwrap();
 }
-
-//=======================
-// The commented code is the actual PRF circuit
-//=======================
-//
-// fn prf_circuit_helper(
-//     seed: &[u8; 32],
-//     input: &[u8; 32],
-//     output: &[u8; 32],
-//     cs: ConstraintSystemRef<Fq>,
-// ) {
-//     // step 1. Allocate seed
-//     let seed_var = Blake2sGadget::new_seed(cs.clone(), &seed);
-
-//     // step 2. Allocate inputs
-//     let input_var = UInt8::new_witness_vec(ark_relations::ns!(cs, "declare_input"), input).unwrap();
-
-//     // step 3. Allocate evaluated output
-//     let output_var = Blake2sGadget::evaluate(&seed_var, &input_var).unwrap();
-
-//     // step 4. Actual output
-//     let actual_out_var = <Blake2sGadget as PRFGadget<_, Fq>>::OutputVar::new_input(
-//         ark_relations::ns!(cs, "declare_output"),
-//         || Ok(output),
-//     )
-//     .unwrap();
-
-//     // step 5. compare the outputs
-//     output_var.enforce_equal(&actual_out_var).unwrap();
-// }
 
 #[allow(dead_code)]
 fn merkle_membership_circuit_proof(
@@ -345,6 +300,7 @@ fn test_zkp_local() {
     use ark_bls12_381::Bls12_381;
     use ark_crypto_primitives::CommitmentScheme;
     use ark_crypto_primitives::FixedLengthCRH;
+    use ark_ff::ToConstraintField;
     use ark_groth16::create_random_proof;
     use ark_groth16::{generate_random_parameters, verify_proof};
     use ark_relations::r1cs::ConstraintSystem;
@@ -352,8 +308,8 @@ fn test_zkp_local() {
     use rand_chacha::ChaCha20Rng;
     use rand_core::RngCore;
 
-    let hash_param_seed = [1u8; 32];
-    let commit_param_seed = [2u8; 32];
+    let hash_param_seed = crate::param::HASHPARAMSEED;
+    let commit_param_seed = crate::param::HASHPARAMSEED;
 
     let mut rng = ChaCha20Rng::from_seed(commit_param_seed);
     let commit_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
@@ -390,7 +346,15 @@ fn test_zkp_local() {
         .unwrap();
     assert!(sanity_cs.is_satisfied().unwrap());
 
+    let mut rng = ChaCha20Rng::from_seed(crate::param::ZKPPARAMSEED);
     let pk = generate_random_parameters::<Bls12_381, _, _>(circuit.clone(), &mut rng).unwrap();
+    // let vk = Groth16VK::deserialize(crate::param::VKBYTES.as_ref()).unwrap();
+    // assert_eq!(pk.vk, vk);
+    // let mut bytes: Vec<u8> = Vec::new();
+    // pk.vk.serialize(&mut bytes).unwrap();
+    // assert_eq!(bytes[..].as_ref(), crate::param::VKBYTES.as_ref());
+
+
     let proof = create_random_proof(circuit, &pk, &mut rng).unwrap();
     let pvk = Groth16PVK::from(pk.vk.clone());
 
@@ -400,22 +364,9 @@ fn test_zkp_local() {
 
     // format the input to the verification
     let mut inputs = [k_old.x, k_old.y, k_new.x, k_new.y, cm_new.x, cm_new.y].to_vec();
-
-    // for e in sender.pk.iter() {
-    //     let mut f = *e;
-    //     for _ in 0..8 {
-    //         inputs.push((f & 0b1).into());
-    //         f = f >> 1;
-    //     }
-    // }
-
-    for e in sender_priv_info.sn.iter() {
-        let mut f = *e;
-        for _ in 0..8 {
-            inputs.push((f & 0b1).into());
-            f = f >> 1;
-        }
-    }
+    let sn: Vec<Fq> =
+        ToConstraintField::<Fq>::to_field_elements(sender_priv_info.sn.as_ref()).unwrap();
+    inputs = [inputs[..].as_ref(), sn.as_ref()].concat();
 
     assert!(verify_proof(&pvk, &proof, &inputs[..]).unwrap())
 }
@@ -431,8 +382,8 @@ fn test_zkp_interface() {
     use rand_chacha::ChaCha20Rng;
     use rand_core::RngCore;
 
-    let hash_param_seed = [1u8; 32];
-    let commit_param_seed = [2u8; 32];
+    let hash_param_seed = crate::param::HASHPARAMSEED;
+    let commit_param_seed = crate::param::COMMITPARAMSEED;
 
     let mut rng = ChaCha20Rng::from_seed(commit_param_seed);
     let commit_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
@@ -477,10 +428,9 @@ fn test_zkp_interface() {
     proof.serialize(proof_bytes.as_mut()).unwrap();
 
     assert!(manta_verify_zkp(
-        key_bytes,
+        crate::param::VKBYTES.to_vec(),
         proof_bytes,
         sender_priv_info.sn,
-        // sender.pk,
         sender_pub_info.k,
         receiver_pub_info.k,
         receiver.cm_bytes,

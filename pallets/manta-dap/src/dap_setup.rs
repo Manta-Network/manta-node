@@ -1,7 +1,5 @@
-use crate::priv_coin::*;
 use crate::types::*;
 use ark_crypto_primitives::CommitmentScheme;
-use ark_serialize::CanonicalDeserialize;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 
