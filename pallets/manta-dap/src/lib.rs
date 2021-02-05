@@ -387,7 +387,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::*;
+    // use crate::types::*;
     use crate::zkp::TransferCircuit;
     use ark_bls12_381::Bls12_381;
     use ark_crypto_primitives::CommitmentScheme;
@@ -522,7 +522,6 @@ mod tests {
             assert_eq!(coin_list.len(), 1);
             assert_eq!(coin_list[0], coin);
 
-
             let mut k_bytes = [0u8; 32];
             let k_vec = BASE64
                 .decode(b"CutG9BBbkJMpBkbYTVX37HWunGcxHyy8+Eb1xRT9eVM=")
@@ -562,7 +561,6 @@ mod tests {
             assert_eq!(coin_list.len(), 2);
             assert_eq!(coin_list[1], coin);
 
-
             let sn_list = SNList::get();
             assert_eq!(sn_list.len(), 0);
         });
@@ -597,6 +595,113 @@ mod tests {
             assert_eq!(coin_list[0], coin);
             let sn_list = SNList::get();
             assert_eq!(sn_list.len(), 0);
+        });
+    }
+
+    #[test]
+    fn test_transfer_hardcode_should_work() {
+        new_test_ext().execute_with(|| {
+            assert_ok!(Assets::init(Origin::signed(1), 1000));
+            assert_eq!(Assets::balance(1), 1000);
+            assert_eq!(PoolBalance::get(), 0);
+
+            // hardcoded sender 
+            let  mut old_k_bytes = [0u8;32];
+            let old_k_vec = BASE64
+                .decode(b"+tMTpSikpdACxuDGZTl5pxwT7tpYcX/DFKJRZ1oLfqc=")
+                .unwrap();
+            old_k_bytes.copy_from_slice(&old_k_vec[0..32].as_ref());
+
+            let mut old_s_bytes = [0u8; 32];
+            let old_s_vec = BASE64
+                .decode(b"xsPXqMXA1SKMOehtsgVWV8xw9Mj0rh3O8Yt1ZHJzaQ4=")
+                .unwrap();
+            old_s_bytes.copy_from_slice(old_s_vec[0..32].as_ref());
+
+            let mut old_cm_bytes = [0u8; 32];
+            let old_cm_vec = BASE64
+                .decode(b"XzoWOzhp6rXjQ/HDEN6jSLsLs64hKXWUNuFVtCUq0AA=")
+                .unwrap();
+            old_cm_bytes.copy_from_slice(&old_cm_vec[0..32].as_ref());
+
+
+            let mut old_sn_bytes = [0u8; 32];
+            let old_sn_vec = BASE64
+                .decode(b"jqhzAPanABquT0CpMC2aFt2ze8+UqMUcUG6PZBmqFqE=")
+                .unwrap();
+            old_sn_bytes.copy_from_slice(&old_sn_vec[0..32].as_ref());
+
+            let sender = MantaCoin {
+                cm_bytes: old_cm_bytes.clone(),
+                value: 10,
+            };
+
+            // mint the sender coin
+            assert_ok!(Assets::mint(
+                Origin::signed(1),
+                10,
+                old_k_bytes ,
+                old_s_bytes,
+               old_cm_bytes
+            ));
+
+            // hardcoded receiver
+            let  mut new_k_bytes = [0u8;32];
+            let new_k_vec = BASE64
+                .decode(b"2HbWGQCLOfxuA4jOiDftBRSbjjAs/a0vjrq/H4p6QBI=")
+                .unwrap();
+            new_k_bytes.copy_from_slice(&new_k_vec[0..32].as_ref());
+
+            let mut new_cm_bytes = [0u8; 32];
+            let new_cm_vec = BASE64
+                .decode(b"1zuOv92V7e1qX1bP7+QNsV+gW5E3xUsghte/lZ7h5pg=")
+                .unwrap();
+            new_cm_bytes.copy_from_slice(new_cm_vec[0..32].as_ref());
+
+            // hardcoded proof
+            let mut proof_bytes = [0u8; 192];
+            let proof_vec = BASE64
+                .decode(b"SteTxuxdE9nhB7CszCgCrEarKCv4GE8toATEgMmmdgGcp6D5EEo47Jcb9f0R2UKEK7ZCZv9HBBbvwzCVfSYysx91axKSHvW5dD0tj0UkNTh0DbDDa5Tsr5HY46nKSQIUDEM3jZsNTPI8BoEbKLMfGFU+IIpugjim7iIvXF71MIM9x2Ts4oRRZGJ24KaYBvcRgvKUNtSN8OyoYdSBfk9Kp5rb5FtkyWzYQYQLV1zXI6pJkwSVaH0i0ttInnxOYlWN")
+                .unwrap();
+            proof_bytes.copy_from_slice(proof_vec[0..192].as_ref());
+
+
+
+            assert_eq!(PoolBalance::get(), 10);
+            let coin_list = CoinList::get();
+            assert_eq!(coin_list.len(), 1);
+            assert_eq!(coin_list[0], sender);
+            let sn_list = SNList::get();
+            assert_eq!(sn_list.len(), 0);
+
+            // make the transfer
+            assert_ok!(Assets::manta_transfer(
+                Origin::signed(1),
+                [0u8; 32],
+                old_sn_bytes,
+                old_k_bytes,
+                new_k_bytes,
+                new_cm_bytes,
+                10,
+                proof_bytes,
+            ));
+
+            // check the resulting status of the ledger storage
+            let receiver = MantaCoin{
+                cm_bytes: new_cm_bytes,
+                value: 10,
+            };
+            assert_eq!(TotalSupply::get(), 1000);
+            assert_eq!(PoolBalance::get(), 10);
+            let coin_list = CoinList::get();
+            assert_eq!(coin_list.len(), 2);
+            assert_eq!(coin_list[0], sender);
+            assert_eq!(coin_list[1], receiver);
+            let sn_list = SNList::get();
+            assert_eq!(sn_list.len(), 1);
+            assert_eq!(sn_list[0], old_sn_bytes);
+
+            // todo: check the ledger state is correctly updated
         });
     }
 
