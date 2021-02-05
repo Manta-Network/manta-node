@@ -198,36 +198,19 @@ decl_module! {
         #[weight = 0]
         fn mint(origin,
             amount: u64,
-            k_encoded: Vec<u8>,
-            s_encoded: Vec<u8>,
-            cm_encoded: Vec<u8>
+            k: [u8;32],
+            s: [u8;32],
+            cm: [u8;32]
         ) {
             
             // get the original balance
             Self::deposit_event(RawEvent::Debug(1));
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
-            Self::deposit_event(RawEvent::Dump([1, 2, 3].to_vec()));
-
-            
             let origin_account = origin.clone();
             ensure!(!amount.is_zero(), Error::<T>::AmountZero);
             let origin_balance = <Balances<T>>::get(&origin_account);
-            ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
-
-            Self::deposit_event(RawEvent::Dump([4, 5, 6].to_vec()));
-            let k_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
-            Self::deposit_event(RawEvent::Dump([1, 2, 3].to_vec()));
-            let s_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
-            let cm_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
-            let mut k = [0u8; 32];
-            let mut s = [0u8; 32];
-            let mut cm = [0u8; 32];
-
-            k.copy_from_slice(k_vec[0..32].as_ref());
-            s.copy_from_slice(s_vec[0..32].as_ref());
-            cm.copy_from_slice(cm_vec[0..32].as_ref());
-            Self::deposit_event(RawEvent::Dump([1, 2, 3].to_vec()));
+            ensure!(origin_balance >= amount, Error::<T>::BalanceLow);            
 
             // get the parameter seeds from the ledger
             let hash_param_seed = HashParamSeed::get();
@@ -260,7 +243,6 @@ decl_module! {
             let new_state = priv_coin::merkle_root(&hash_param_seed, &coin_list);
 
             // write back to ledger storage
-            Self::deposit_event(RawEvent::Dump([1,2,3].to_vec()));
             Self::deposit_event(RawEvent::Minted(origin, amount));
             CoinList::put(coin_list);
             LedgerState::put(new_state);
@@ -515,25 +497,34 @@ mod tests {
             assert_ok!(Assets::init(Origin::signed(1), 1000));
             assert_eq!(Assets::balance(1), 1000);
             assert_eq!(PoolBalance::get(), 0);
+            let com_param_seed = CommitParamSeed::get();
+            let mut rng = ChaCha20Rng::from_seed(com_param_seed);
+            let com_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
+
+            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
+            let mut sk = [0u8; 32];
+            rng.fill_bytes(&mut sk);
+            let (coin, pub_info, _priv_info) = priv_coin::make_coin(&com_param, sk, 10, &mut rng);
             assert_ok!(Assets::mint(
                 Origin::signed(1),
-                100,
-                b"CutG9BBbkJMpBkbYTVX37HWunGcxHyy8+Eb1xRT9eVM=".to_vec(),
-                b"/KTVGbHHU8UVHLS6h54470DtjwF6MHvBkG2bKxpyBQc=".to_vec(),
-                b"EdHWc+HAgRWlcJrK8dlVnewSCTwEDPZFa8iYKxoRdOY=".to_vec()
+                10,
+                pub_info.k,
+                pub_info.s,
+                coin.cm_bytes
             ));
 
             assert_eq!(TotalSupply::get(), 1000);
             assert_eq!(PoolBalance::get(), 10);
             let coin_list = CoinList::get();
             assert_eq!(coin_list.len(), 1);
+            assert_eq!(coin_list[0], coin);
             let sn_list = SNList::get();
             assert_eq!(sn_list.len(), 0);
         });
     }
 
     #[test]
-    fn test_transfer_should_work() {
+    fn test_transfer_should_work() { //TODO: this test is running too long, we should hardcode zkp
         new_test_ext().execute_with(|| {
             assert_ok!(Assets::init(Origin::signed(1), 1000));
             assert_eq!(Assets::balance(1), 1000);
@@ -555,9 +546,9 @@ mod tests {
             assert_ok!(Assets::mint(
                 Origin::signed(1),
                 10,
-                sender_pub_info.k.to_vec(),
-                sender_pub_info.s.to_vec(),
-                sender.cm_bytes.to_vec()
+                sender_pub_info.k,
+                sender_pub_info.s,
+                sender.cm_bytes
             ));
 
             assert_eq!(PoolBalance::get(), 10);
