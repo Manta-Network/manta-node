@@ -4131,7 +4131,6 @@ dependencies = [
  "ark-relations",
  "ark-serialize",
  "ark-std",
- "data-encoding",
  "frame-support",
  "frame-system",
  "parity-scale-codec",

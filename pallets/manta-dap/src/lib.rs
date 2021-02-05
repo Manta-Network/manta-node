@@ -91,7 +91,6 @@ extern crate ark_relations;
 extern crate ark_serialize;
 extern crate ark_std;
 extern crate rand_chacha;
-extern crate data_encoding;
 // extern crate blake2;
 // extern crate ed25519_dalek;
 // extern crate rand;
@@ -110,7 +109,6 @@ use ark_std::vec::Vec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{StaticLookup, Zero};
-use data_encoding::BASE64;
 
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
