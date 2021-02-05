@@ -174,7 +174,7 @@ decl_module! {
         #[weight = 0]
         fn transfer(origin,
             target: <T::Lookup as StaticLookup>::Source,
-            amount: u64,
+            amount: u64
         ) {
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
@@ -213,16 +213,16 @@ decl_module! {
             ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
 
 
-            // let k_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
-            // let s_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
-            // let cm_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
+            let k_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
+            let s_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
+            let cm_vec = BASE64.decode(k_encoded.as_ref()).unwrap();
             let mut k = [0u8; 32];
             let mut s = [0u8; 32];
             let mut cm = [0u8; 32];
 
-            // k.copy_from_slice(k_vec[0..32].as_ref());
-            // s.copy_from_slice(s_vec[0..32].as_ref());
-            // cm.copy_from_slice(cm_vec[0..32].as_ref());
+            k.copy_from_slice(k_vec[0..32].as_ref());
+            s.copy_from_slice(s_vec[0..32].as_ref());
+            cm.copy_from_slice(cm_vec[0..32].as_ref());
 
 
             // get the parameter seeds from the ledger
@@ -231,7 +231,10 @@ decl_module! {
 
             // check the validity of the commitment
             let payload = [amount.to_le_bytes().as_ref(), k.as_ref()].concat();
-            ensure!(priv_coin::comm_open(&commit_param_seed, &s, &payload, &cm), <Error<T>>::MintFail);
+            ensure!(
+                priv_coin::comm_open(&commit_param_seed, &s, &payload, &cm), 
+                <Error<T>>::MintFail
+            );
 
             // check cm is not in coin_list
             let mut coin_list = CoinList::get();
@@ -327,8 +330,8 @@ decl_event! {
         Minted(AccountId, u64),
         /// Private transfer
         PrivateTransferred(AccountId),
-        /// Dump to the frontend
-        Dump(Vec<u8>),
+        // /// Dump to the frontend
+        // Dump(Vec<u8>),
     }
 }
 
