@@ -204,6 +204,7 @@ decl_module! {
         ) {
             
             // get the original balance
+            Self::deposit_event(RawEvent::Debug(1));
             ensure!(Self::is_init(), <Error<T>>::BasecoinNotInit);
             let origin = ensure_signed(origin)?;
             Self::deposit_event(RawEvent::Dump([1, 2, 3].to_vec()));
@@ -337,6 +338,8 @@ decl_event! {
         PrivateTransferred(AccountId),
         /// Dump to the frontend
         Dump(Vec<u8>),
+        /// Debug code
+        Debug(u64),
     }
 }
 
@@ -512,27 +515,18 @@ mod tests {
             assert_ok!(Assets::init(Origin::signed(1), 1000));
             assert_eq!(Assets::balance(1), 1000);
             assert_eq!(PoolBalance::get(), 0);
-            let com_param_seed = CommitParamSeed::get();
-            let mut rng = ChaCha20Rng::from_seed(com_param_seed);
-            let com_param = PrivCoinCommitmentScheme::setup(&mut rng).unwrap();
-
-            let mut rng = ChaCha20Rng::from_seed([3u8; 32]);
-            let mut sk = [0u8; 32];
-            rng.fill_bytes(&mut sk);
-            let (coin, pub_info, _priv_info) = priv_coin::make_coin(&com_param, sk, 10, &mut rng);
             assert_ok!(Assets::mint(
                 Origin::signed(1),
-                10,
-                pub_info.k,
-                pub_info.s,
-                coin.cm_bytes
+                100,
+                b"CutG9BBbkJMpBkbYTVX37HWunGcxHyy8+Eb1xRT9eVM=".to_vec(),
+                b"/KTVGbHHU8UVHLS6h54470DtjwF6MHvBkG2bKxpyBQc=".to_vec(),
+                b"EdHWc+HAgRWlcJrK8dlVnewSCTwEDPZFa8iYKxoRdOY=".to_vec()
             ));
 
             assert_eq!(TotalSupply::get(), 1000);
             assert_eq!(PoolBalance::get(), 10);
             let coin_list = CoinList::get();
             assert_eq!(coin_list.len(), 1);
-            assert_eq!(coin_list[0], coin);
             let sn_list = SNList::get();
             assert_eq!(sn_list.len(), 0);
         });
@@ -561,9 +555,9 @@ mod tests {
             assert_ok!(Assets::mint(
                 Origin::signed(1),
                 10,
-                sender_pub_info.k,
-                sender_pub_info.s,
-                sender.cm_bytes
+                sender_pub_info.k.to_vec(),
+                sender_pub_info.s.to_vec(),
+                sender.cm_bytes.to_vec()
             ));
 
             assert_eq!(PoolBalance::get(), 10);
