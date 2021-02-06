@@ -91,11 +91,6 @@ extern crate ark_relations;
 extern crate ark_serialize;
 extern crate ark_std;
 extern crate rand_chacha;
-// extern crate blake2;
-// extern crate ed25519_dalek;
-// extern crate rand;
-// extern crate rand_core;
-// extern crate sha2;
 
 pub mod dap_setup;
 pub mod param;
@@ -103,7 +98,6 @@ pub mod priv_coin;
 pub mod types;
 pub mod zkp;
 
-// use frame_system::Module;
 use crate::types::*;
 use ark_std::vec::Vec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
@@ -144,13 +138,16 @@ decl_module! {
             let hash_param_seed = param::HASHPARAMSEED;
             let commit_param_seed = param::COMMITPARAMSEED;
 
-
-            // generate the ZKP verification key and push it to the ledger storage
-            // note: for prototype, we use this function to generate the ZKP verification key
+            // push the ZKP verification key to the ledger storage
+            //
+            // NOTE:
+            //    this is is generated via
+            //      let zkp_key = priv_coin::manta_zkp_key_gen(&hash_param_seed, &commit_param_seed);
+            //
+            // for prototype, we use this function to generate the ZKP verification key
             // for product we should use a MPC protocol to build the ZKP verification key
             // and then depoly that vk
-            // let zkp_key = priv_coin::manta_zkp_key_gen(&hash_param_seed, &commit_param_seed);
-            // ZKPKey::put(zkp_key);
+            //
             ZKPKey::put(param::VKBYTES.to_vec());
 
             <Balances<T>>::insert(&origin, total);
@@ -211,7 +208,10 @@ decl_module! {
 
             // check the validity of the commitment
             let payload = [amount.to_le_bytes().as_ref(), k.as_ref()].concat();
-            ensure!(priv_coin::comm_open(&commit_param_seed, &s, &payload, &cm), <Error<T>>::MintFail);
+            ensure!(
+                priv_coin::comm_open(&commit_param_seed, &s, &payload, &cm),
+                <Error<T>>::MintFail
+            );
 
             // check cm is not in coin_list
             let mut coin_list = CoinList::get();
@@ -364,11 +364,7 @@ decl_storage! {
 
         /// verification key for zero-knowledge proof
         /// at the moment we are storing the whole serialized key
-        /// in the blockchain storage. this incurrs a significant
-        /// cost of deserialization, during verification.
-        /// alternatives to be decided later:
-        ///     1. hard code the parameters in the code
-        ///     2. store deserialized keys
+        /// in the blockchain storage.
         pub ZKPKey get(fn zkp_vk): Vec<u8>;
 
     }
@@ -387,7 +383,6 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::types::*;
     use crate::zkp::TransferCircuit;
     use ark_bls12_381::Bls12_381;
     use ark_crypto_primitives::CommitmentScheme;
@@ -453,7 +448,6 @@ mod tests {
     }
     impl Trait for Test {
         type Event = ();
-        // type Balance = u64;
     }
     type Assets = Module<Test>;
 
@@ -483,6 +477,7 @@ mod tests {
             assert_eq!(Assets::balance(1), 1000);
             assert_eq!(PoolBalance::get(), 0);
 
+            // those are parameters for coin_1 in coin.json
             let mut k_bytes = [0u8; 32];
             let k_vec = BASE64
                 .decode(b"+tMTpSikpdACxuDGZTl5pxwT7tpYcX/DFKJRZ1oLfqc=")
@@ -522,6 +517,7 @@ mod tests {
             assert_eq!(coin_list.len(), 1);
             assert_eq!(coin_list[0], coin);
 
+            // those are parameters for coin_2 in coin.json
             let mut k_bytes = [0u8; 32];
             let k_vec = BASE64
                 .decode(b"CutG9BBbkJMpBkbYTVX37HWunGcxHyy8+Eb1xRT9eVM=")
@@ -606,6 +602,7 @@ mod tests {
             assert_eq!(PoolBalance::get(), 0);
 
             // hardcoded sender 
+            // those are parameters for coin_1 in coin.json
             let  mut old_k_bytes = [0u8;32];
             let old_k_vec = BASE64
                 .decode(b"+tMTpSikpdACxuDGZTl5pxwT7tpYcX/DFKJRZ1oLfqc=")
@@ -645,7 +642,17 @@ mod tests {
                old_cm_bytes
             ));
 
+
+            // check that minting is successful
+            assert_eq!(PoolBalance::get(), 10);
+            let coin_list = CoinList::get();
+            assert_eq!(coin_list.len(), 1);
+            assert_eq!(coin_list[0], sender);
+            let sn_list = SNList::get();
+            assert_eq!(sn_list.len(), 0);
+
             // hardcoded receiver
+            // those are parameters for coin_3 in coin.json
             let  mut new_k_bytes = [0u8;32];
             let new_k_vec = BASE64
                 .decode(b"2HbWGQCLOfxuA4jOiDftBRSbjjAs/a0vjrq/H4p6QBI=")
@@ -657,6 +664,10 @@ mod tests {
                 .decode(b"1zuOv92V7e1qX1bP7+QNsV+gW5E3xUsghte/lZ7h5pg=")
                 .unwrap();
             new_cm_bytes.copy_from_slice(new_cm_vec[0..32].as_ref());
+            let receiver = MantaCoin{
+                cm_bytes: new_cm_bytes,
+                value: 10,
+            };
 
             // hardcoded proof
             let mut proof_bytes = [0u8; 192];
@@ -664,15 +675,6 @@ mod tests {
                 .decode(b"SteTxuxdE9nhB7CszCgCrEarKCv4GE8toATEgMmmdgGcp6D5EEo47Jcb9f0R2UKEK7ZCZv9HBBbvwzCVfSYysx91axKSHvW5dD0tj0UkNTh0DbDDa5Tsr5HY46nKSQIUDEM3jZsNTPI8BoEbKLMfGFU+IIpugjim7iIvXF71MIM9x2Ts4oRRZGJ24KaYBvcRgvKUNtSN8OyoYdSBfk9Kp5rb5FtkyWzYQYQLV1zXI6pJkwSVaH0i0ttInnxOYlWN")
                 .unwrap();
             proof_bytes.copy_from_slice(proof_vec[0..192].as_ref());
-
-
-
-            assert_eq!(PoolBalance::get(), 10);
-            let coin_list = CoinList::get();
-            assert_eq!(coin_list.len(), 1);
-            assert_eq!(coin_list[0], sender);
-            let sn_list = SNList::get();
-            assert_eq!(sn_list.len(), 0);
 
             // make the transfer
             assert_ok!(Assets::manta_transfer(
@@ -687,10 +689,6 @@ mod tests {
             ));
 
             // check the resulting status of the ledger storage
-            let receiver = MantaCoin{
-                cm_bytes: new_cm_bytes,
-                value: 10,
-            };
             assert_eq!(TotalSupply::get(), 1000);
             assert_eq!(PoolBalance::get(), 10);
             let coin_list = CoinList::get();

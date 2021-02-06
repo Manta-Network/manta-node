@@ -294,6 +294,7 @@ fn merkle_membership_circuit_proof(
         .unwrap();
 }
 
+/// this is a local test on zero knowledge proof generation and verifications
 #[test]
 fn test_zkp_local() {
     use crate::priv_coin::*;
@@ -348,11 +349,6 @@ fn test_zkp_local() {
 
     let mut rng = ChaCha20Rng::from_seed(crate::param::ZKPPARAMSEED);
     let pk = generate_random_parameters::<Bls12_381, _, _>(circuit.clone(), &mut rng).unwrap();
-    // let vk = Groth16VK::deserialize(crate::param::VKBYTES.as_ref()).unwrap();
-    // assert_eq!(pk.vk, vk);
-    // let mut bytes: Vec<u8> = Vec::new();
-    // pk.vk.serialize(&mut bytes).unwrap();
-    // assert_eq!(bytes[..].as_ref(), crate::param::VKBYTES.as_ref());
 
     let proof = create_random_proof(circuit, &pk, &mut rng).unwrap();
     let pvk = Groth16PVK::from(pk.vk.clone());
@@ -370,6 +366,7 @@ fn test_zkp_local() {
     assert!(verify_proof(&pvk, &proof, &inputs[..]).unwrap())
 }
 
+/// this test invokes Manta's ZKP interfaces
 #[test]
 fn test_zkp_interface() {
     use crate::priv_coin::*;
