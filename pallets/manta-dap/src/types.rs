@@ -30,30 +30,30 @@ use frame_support::codec::{Decode, Encode};
 /// raw value right now. This will be changed in a later version.
 #[derive(Encode, Debug, Decode, Clone, Default, PartialEq)]
 pub struct MantaCoin {
-    pub(crate) cm_bytes: [u8; 32],
-    pub(crate) value: u64,
+    pub cm_bytes: [u8; 32],
+    pub value: u64,
 }
 
 /// the state of the ledger is a root of the merkle tree
 /// where the leafs are the MantaCoins
 #[derive(Encode, Decode, Clone, Default, PartialEq)]
 pub struct MantaLedgerState {
-    pub(crate) state: [u8; 32],
+    pub state: [u8; 32],
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 pub struct MantaCoinPubInfo {
-    pub(crate) pk: [u8; 32],
-    pub(crate) rho: [u8; 32],
-    pub(crate) s: [u8; 32],
-    pub(crate) r: [u8; 32],
-    pub(crate) k: [u8; 32],
+    pub pk: [u8; 32],
+    pub rho: [u8; 32],
+    pub s: [u8; 32],
+    pub r: [u8; 32],
+    pub k: [u8; 32],
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 pub struct MantaCoinPrivInfo {
-    pub(crate) sk: [u8; 32],
-    pub(crate) sn: [u8; 32],
+    pub sk: [u8; 32],
+    pub sn: [u8; 32],
 }
 
 //=======================

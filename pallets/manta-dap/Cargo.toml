@@ -33,12 +33,22 @@ ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", default-features
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std", default-features = false }
 ark-relations = { git = "https://github.com/arkworks-rs/snark", default-features = false }
 ark-serialize = { git = "https://github.com/arkworks-rs/algebra", default-features = false, features = [ "derive" ] }
+# # for front end benchmarking; remove in release version
+# time = { version = "0.2.25", default-features = false }
+
 
 [dev-dependencies]
 sp-core = { version = "2.0.1", default-features = false }
 sp-io = { version = "2.0.1", default-features = false }
 # data encoding is only used for testing
 data-encoding = { version = "2.3.2", default-features = false, features = [ "alloc" ] }
+# benchmarking 
+bencher = "0.1.5"
+criterion = "0.2.11"
+
+[[bench]]
+name = "manta_bench"
+harness = false
 
 [features]
 default = ["std"]

@@ -31,20 +31,20 @@ use ark_std::vec::Vec;
 #[derive(Clone)]
 pub struct TransferCircuit {
     // param
-    pub(crate) commit_param: PrivCoinCommitmentParam,
-    pub(crate) hash_param: HashParam,
+    pub commit_param: PrivCoinCommitmentParam,
+    pub hash_param: HashParam,
 
     // sender
-    pub(crate) sender_coin: MantaCoin,
-    pub(crate) sender_pub_info: MantaCoinPubInfo,
-    pub(crate) sender_priv_info: MantaCoinPrivInfo,
+    pub sender_coin: MantaCoin,
+    pub sender_pub_info: MantaCoinPubInfo,
+    pub sender_priv_info: MantaCoinPrivInfo,
 
     // receiver
-    pub(crate) receiver_coin: MantaCoin,
-    pub(crate) receiver_pub_info: MantaCoinPubInfo,
+    pub receiver_coin: MantaCoin,
+    pub receiver_pub_info: MantaCoinPubInfo,
 
     // ledger
-    pub(crate) list: Vec<[u8; 32]>,
+    pub list: Vec<[u8; 32]>,
 }
 
 impl ConstraintSynthesizer<Fq> for TransferCircuit {
