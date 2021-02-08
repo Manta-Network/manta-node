@@ -33,8 +33,11 @@ ark-groth16 = { git = "https://github.com/arkworks-rs/groth16", default-features
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std", default-features = false }
 ark-relations = { git = "https://github.com/arkworks-rs/snark", default-features = false }
 ark-serialize = { git = "https://github.com/arkworks-rs/algebra", default-features = false, features = [ "derive" ] }
-# # for front end benchmarking; remove in release version
-# time = { version = "0.2.25", default-features = false }
+x25519-dalek = { version = "1.1.0", default-features = false, features = [ "u64_backend", "nightly" ]}
+hkdf = { version = "0.10", default-features = false }
+sha2 = { version = "0.9.3", default-features = false }
+aes = { version = "0.6.0", default-features = false }
+
 
 
 [dev-dependencies]

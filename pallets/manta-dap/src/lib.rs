@@ -91,8 +91,10 @@ extern crate ark_relations;
 extern crate ark_serialize;
 extern crate ark_std;
 extern crate rand_chacha;
+extern crate x25519_dalek;
 
 pub mod dap_setup;
+pub mod dh;
 pub mod param;
 pub mod priv_coin;
 pub mod types;
