@@ -195,7 +195,9 @@ pub fn make_coin<R: RngCore + CryptoRng>(
     let mut cm_bytes = [0u8; 32];
     cm.serialize(cm_bytes.as_mut()).unwrap();
 
-    let coin = MantaCoin { cm_bytes, value };
+    let coin = MantaCoin {
+        cm_bytes,
+    };
     let pub_info = MantaCoinPubInfo {
         pk,
         rho,
@@ -203,6 +205,6 @@ pub fn make_coin<R: RngCore + CryptoRng>(
         r: r_bytes,
         k: k_bytes,
     };
-    let priv_info = MantaCoinPrivInfo { sk, sn };
+    let priv_info = MantaCoinPrivInfo { sk, sn, value };
     (coin, pub_info, priv_info)
 }

@@ -18,14 +18,14 @@ use x25519_dalek::{EphemeralSecret, PublicKey, StaticSecret};
 ///     5. compute c = aes_enc(value.to_le_bytes(), aes_key)
 /// return (sender_pk, c)
 pub fn manta_dh_enc<R: RngCore + CryptoRng>(
-    receiver_pk_bytes: [u8; 32],
+    receiver_pk_bytes: &[u8; 32],
     value: u64,
     rng: &mut R,
 ) -> ([u8; 32], [u8; 16]) {
     let sender_sk = EphemeralSecret::new(rng);
     let sender_pk = PublicKey::from(&sender_sk);
 
-    let receiver_pk = PublicKey::from(receiver_pk_bytes);
+    let receiver_pk = PublicKey::from(*receiver_pk_bytes);
     let shared_secret = sender_sk.diffie_hellman(&receiver_pk);
     let ss = manta_kdf(&shared_secret.to_bytes());
     let aes_key = GenericArray::from_slice(&ss);
@@ -53,11 +53,11 @@ fn manta_kdf(input: &[u8]) -> [u8; 32] {
 
 pub fn manta_dh_dec(
     cipher: &[u8; 16],
-    sender_pk_bytes: [u8; 32],
-    receiver_sk_bytes: [u8; 32],
+    sender_pk_bytes: &[u8; 32],
+    receiver_sk_bytes: &[u8; 32],
 ) -> u64 {
-    let receiver_sk = StaticSecret::from(receiver_sk_bytes);
-    let sender_pk = PublicKey::from(sender_pk_bytes);
+    let receiver_sk = StaticSecret::from(*receiver_sk_bytes);
+    let sender_pk = PublicKey::from(*sender_pk_bytes);
     let shared_secret = receiver_sk.diffie_hellman(&sender_pk);
     let ss = manta_kdf(&shared_secret.to_bytes());
     let aes_key = GenericArray::from_slice(&ss);
@@ -84,8 +84,8 @@ fn manta_dh() {
     let receiver_pk_bytes = receiver_pk.to_bytes();
     let receiver_sk_bytes = receiver_sk.to_bytes();
     let value = 12345678;
-    let (sender_pk_bytes, cipher) = manta_dh_enc(receiver_pk_bytes, value, &mut rng);
+    let (sender_pk_bytes, cipher) = manta_dh_enc(&receiver_pk_bytes, value, &mut rng);
     println!("enc success");
-    let rec_value = manta_dh_dec(&cipher, sender_pk_bytes, receiver_sk_bytes);
+    let rec_value = manta_dh_dec(&cipher, &sender_pk_bytes, &receiver_sk_bytes);
     assert_eq!(value, rec_value);
 }

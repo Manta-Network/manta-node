@@ -101,11 +101,11 @@ pub mod priv_coin;
 pub mod types;
 pub mod zkp;
 
-use crate::types::*;
 use ark_std::vec::Vec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_runtime::traits::{StaticLookup, Zero};
+use types::*;
 
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
@@ -228,7 +228,6 @@ decl_module! {
             // add the new coin to the ledger
             let coin = MantaCoin {
                 cm_bytes: cm,
-                value: amount,
             };
             coin_list.push(coin);
 
@@ -254,8 +253,7 @@ decl_module! {
             k_old: [u8; 32],
             k_new: [u8; 32],
             cm_new: [u8; 32],
-            // todo: amount shall be an encrypted
-            amount: u64,
+            enc_amount: [u8; 16],
             proof: [u8; 192]
         ) {
 
@@ -271,8 +269,6 @@ decl_module! {
             let mut coin_list = CoinList::get();
             let coin_new = MantaCoin{
                 cm_bytes: cm_new,
-                // todo: amount shall be an encrypted
-                value: amount,
             };
             coin_list.push(coin_new);
 
@@ -291,9 +287,13 @@ decl_module! {
             // TODO: revisit replay attack here
 
             // update ledger state
+            let mut enc_value_list = EncValueList::get();
+            enc_value_list.push(enc_amount);
+
             Self::deposit_event(RawEvent::PrivateTransferred(origin));
             CoinList::put(coin_list);
             SNList::put(sn_list);
+            EncValueList::put(enc_value_list);
         }
     }
 }
@@ -353,6 +353,9 @@ decl_storage! {
         /// List of Coins that has ever been created
         pub CoinList get(fn coin_list): Vec<MantaCoin>;
 
+        /// List of encrypted values
+        pub EncValueList get(fn enc_value_list): Vec<[u8; 16]>;
+
         /// merkle root of list of commitments
         pub LedgerState get(fn legder_state): MantaLedgerState;
 
@@ -409,6 +412,7 @@ mod tests {
         traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
+    use x25519_dalek::{PublicKey, StaticSecret};
 
     impl_outer_origin! {
         pub enum Origin for Test where system = frame_system {}
@@ -499,11 +503,8 @@ mod tests {
                 .unwrap();
             cm_bytes.copy_from_slice(cm_vec[0..32].as_ref());
 
-            let value = 10;
-
             let coin = MantaCoin {
                 cm_bytes: cm_bytes.clone(),
-                value,
             };
 
             assert_ok!(Assets::mint(
@@ -539,11 +540,8 @@ mod tests {
                 .unwrap();
             cm_bytes.copy_from_slice(cm_vec[0..32].as_ref());
 
-            let value = 100;
-
             let coin = MantaCoin {
                 cm_bytes: cm_bytes.clone(),
-                value,
             };
 
             assert_ok!(Assets::mint(
@@ -604,7 +602,7 @@ mod tests {
             assert_eq!(Assets::balance(1), 1000);
             assert_eq!(PoolBalance::get(), 0);
 
-            // hardcoded sender 
+            // hardcoded sender
             // those are parameters for coin_1 in coin.json
             let  mut old_k_bytes = [0u8;32];
             let old_k_vec = BASE64
@@ -624,7 +622,6 @@ mod tests {
                 .unwrap();
             old_cm_bytes.copy_from_slice(&old_cm_vec[0..32].as_ref());
 
-
             let mut old_sn_bytes = [0u8; 32];
             let old_sn_vec = BASE64
                 .decode(b"jqhzAPanABquT0CpMC2aFt2ze8+UqMUcUG6PZBmqFqE=")
@@ -633,7 +630,6 @@ mod tests {
 
             let sender = MantaCoin {
                 cm_bytes: old_cm_bytes.clone(),
-                value: 10,
             };
 
             // mint the sender coin
@@ -642,9 +638,8 @@ mod tests {
                 10,
                 old_k_bytes ,
                 old_s_bytes,
-               old_cm_bytes
+                old_cm_bytes
             ));
-
 
             // check that minting is successful
             assert_eq!(PoolBalance::get(), 10);
@@ -669,15 +664,34 @@ mod tests {
             new_cm_bytes.copy_from_slice(new_cm_vec[0..32].as_ref());
             let receiver = MantaCoin{
                 cm_bytes: new_cm_bytes,
-                value: 10,
             };
 
             // hardcoded proof
             let mut proof_bytes = [0u8; 192];
             let proof_vec = BASE64
-                .decode(b"SteTxuxdE9nhB7CszCgCrEarKCv4GE8toATEgMmmdgGcp6D5EEo47Jcb9f0R2UKEK7ZCZv9HBBbvwzCVfSYysx91axKSHvW5dD0tj0UkNTh0DbDDa5Tsr5HY46nKSQIUDEM3jZsNTPI8BoEbKLMfGFU+IIpugjim7iIvXF71MIM9x2Ts4oRRZGJ24KaYBvcRgvKUNtSN8OyoYdSBfk9Kp5rb5FtkyWzYQYQLV1zXI6pJkwSVaH0i0ttInnxOYlWN")
+                .decode(b"3N+/gTSg2lQyZnYfRwX2j9b0SKofxCIDH8Yn5cRrXx5PLObJOC60NgnhZFPU7ycDiLSEwJq0YDkihqPWPUCGLSUkxU/ml0JpX5R1ItZC7r2i89qfQodojGNRH68QXMsDsuBzIBksv9y+GxKcoKfuixpWJDmJ9HdNSFGgM+GXBhfrkeBlPB1eSAKafkcp0H4BjK8s01tILn7437i9gRE9lFvsUJQL+w6FnIwonR8EDHl+vSg7qN74AculD63eecuZ")
                 .unwrap();
             proof_bytes.copy_from_slice(proof_vec[0..192].as_ref());
+
+            // hardcoded keys and ciphertext
+            let mut cipher_bytes = [0u8; 16];
+            let cipher_vec =  BASE64
+                .decode(b"UkNssYxe5HUjSzlz5JE1pQ==")
+                .unwrap();
+            cipher_bytes.copy_from_slice(cipher_vec[0..16].as_ref());
+
+            let mut sender_pk_bytes = [0u8; 32];
+            let sender_pk_vec =  BASE64
+                .decode(b"YNwLbvb27Rb0aKptzSNEvBToYvW9IlbjVvROHfD2NAQ=")
+                .unwrap();
+            sender_pk_bytes.copy_from_slice(sender_pk_vec[0..32].as_ref());
+
+            let mut receiver_sk_bytes = [0u8; 32];
+            let receiver_sk_vec =  BASE64
+                .decode(b"uPo5YiD6wGRiHbIXH6WmHuwjYS+mNSkCspDngkHHJ2c=")
+                .unwrap();
+            receiver_sk_bytes.copy_from_slice(receiver_sk_vec[0..32].as_ref());
+
 
             // make the transfer
             assert_ok!(Assets::manta_transfer(
@@ -687,7 +701,7 @@ mod tests {
                 old_k_bytes,
                 new_k_bytes,
                 new_cm_bytes,
-                10,
+                cipher_bytes,
                 proof_bytes,
             ));
 
@@ -701,6 +715,14 @@ mod tests {
             let sn_list = SNList::get();
             assert_eq!(sn_list.len(), 1);
             assert_eq!(sn_list[0], old_sn_bytes);
+
+            let enc_value_list = EncValueList::get();
+            assert_eq!(enc_value_list.len(), 1);
+            assert_eq!(enc_value_list[0], cipher_bytes);
+            assert_eq!(
+                dh::manta_dh_dec(&cipher_bytes, &sender_pk_bytes, &receiver_sk_bytes),
+                10
+            );
 
             // todo: check the ledger state is correctly updated
         });
@@ -777,6 +799,12 @@ mod tests {
             proof.serialize(proof_bytes.as_mut()).unwrap();
 
             // make the transfer
+            let receiver_sk = StaticSecret::new(&mut rng);
+            let receiver_pk = PublicKey::from(&receiver_sk);
+            let receiver_pk_bytes = receiver_pk.to_bytes();
+            let receiver_sk_bytes = receiver_sk.to_bytes();
+            let (sender_pk_bytes, cipher) = dh::manta_dh_enc(&receiver_pk_bytes, 10, &mut rng);
+
             assert_ok!(Assets::manta_transfer(
                 Origin::signed(1),
                 [0u8; 32],
@@ -784,7 +812,7 @@ mod tests {
                 sender_pub_info.k,
                 receiver_pub_info.k,
                 receiver.cm_bytes,
-                10,
+                cipher,
                 proof_bytes,
             ));
 
@@ -799,7 +827,13 @@ mod tests {
             let sn_list = SNList::get();
             assert_eq!(sn_list.len(), 1);
             assert_eq!(sn_list[0], sender_priv_info.sn);
-
+            let enc_value_list = EncValueList::get();
+            assert_eq!(enc_value_list.len(), 1);
+            assert_eq!(enc_value_list[0], cipher);
+            assert_eq!(
+                dh::manta_dh_dec(&cipher, &sender_pk_bytes, &receiver_sk_bytes),
+                10
+            );
             // todo: check the ledger state is correctly updated
         });
     }

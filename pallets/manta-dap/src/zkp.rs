@@ -5,7 +5,6 @@ use ark_crypto_primitives::prf::blake2s::constraints::Blake2sGadget;
 use ark_crypto_primitives::prf::PRFGadget;
 use ark_crypto_primitives::CommitmentGadget;
 use ark_crypto_primitives::PathVar;
-use ark_ed_on_bls12_381::constraints::FqVar;
 use ark_ed_on_bls12_381::EdwardsProjective;
 use ark_ed_on_bls12_381::Fq;
 use ark_ed_on_bls12_381::Fr;
@@ -65,6 +64,7 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
             &parameters_var,
             &self.sender_coin,
             &self.sender_pub_info,
+            self.sender_priv_info.value,
             cs.clone(),
         );
 
@@ -73,6 +73,7 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
             &parameters_var,
             &self.receiver_coin,
             &self.receiver_pub_info,
+            self.sender_priv_info.value,
             cs.clone(),
         );
 
@@ -103,20 +104,23 @@ impl ConstraintSynthesizer<Fq> for TransferCircuit {
         // );
 
         // 4. sender's and receiver's value are the same
-        let sender_value_fq = Fq::from(self.sender_coin.value);
-        let sender_value_var = FqVar::new_witness(ark_relations::ns!(cs, "sender value"), || {
-            Ok(&sender_value_fq)
-        })
-        .unwrap();
+        // this is implied since a same value goes to both
+        // sender and receiver token_well_formed circuit
 
-        let receiver_value_fq = Fq::from(self.receiver_coin.value);
-        let receiver_value_var =
-            FqVar::new_witness(ark_relations::ns!(cs, "receiver value"), || {
-                Ok(&receiver_value_fq)
-            })
-            .unwrap();
+        // let sender_value_fq = Fq::from(self.sender_priv_info.value);
+        // let sender_value_var = FqVar::new_witness(ark_relations::ns!(cs, "sender value"), || {
+        //     Ok(&sender_value_fq)
+        // })
+        // .unwrap();
 
-        sender_value_var.enforce_equal(&receiver_value_var).unwrap();
+        // let receiver_value_fq = Fq::from(self.receiver_coin.value);
+        // let receiver_value_var =
+        //     FqVar::new_witness(ark_relations::ns!(cs, "receiver value"), || {
+        //         Ok(&receiver_value_fq)
+        //     })
+        //     .unwrap();
+
+        // sender_value_var.enforce_equal(&receiver_value_var).unwrap();
 
         Ok(())
     }
@@ -134,6 +138,7 @@ fn token_well_formed_circuit_helper(
     parameters_var: &PrivCoinCommitmentParamVar,
     coin: &MantaCoin,
     pub_info: &MantaCoinPubInfo,
+    value: u64,
     cs: ConstraintSystemRef<Fq>,
 ) {
     // =============================
@@ -170,7 +175,7 @@ fn token_well_formed_circuit_helper(
     // =============================
     // statement 2: cm = com(v||k, s)
     // =============================
-    let input: Vec<u8> = [coin.value.to_le_bytes().as_ref(), pub_info.k.as_ref()].concat();
+    let input: Vec<u8> = [value.to_le_bytes().as_ref(), pub_info.k.as_ref()].concat();
     let mut input_var = Vec::new();
     for byte in &input {
         input_var.push(UInt8::new_witness(cs.clone(), || Ok(*byte)).unwrap());

@@ -23,15 +23,11 @@ use ark_r1cs_std::fields::fp::FpVar;
 use ark_r1cs_std::groups::curves::twisted_edwards::AffineVar;
 use frame_support::codec::{Decode, Encode};
 
-/// a MantaCoin is a pair of commitment cm and ciphertext c, where
+/// a MantaCoin is a pair of commitment cm, where
 ///  * cm = com(v||k, s), commits to the value, and
-///  * c = enc(v), encrypts the value under user (receiver) public key
-/// For simplicity, the prototype does not use encryption, and store the
-/// raw value right now. This will be changed in a later version.
 #[derive(Encode, Debug, Decode, Clone, Default, PartialEq)]
 pub struct MantaCoin {
     pub cm_bytes: [u8; 32],
-    pub value: u64,
 }
 
 /// the state of the ledger is a root of the merkle tree
@@ -52,6 +48,7 @@ pub struct MantaCoinPubInfo {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 pub struct MantaCoinPrivInfo {
+    pub value: u64,
     pub sk: [u8; 32],
     pub sn: [u8; 32],
 }

@@ -40,6 +40,10 @@
         "k_new": "2HbWGQCLOfxuA4jOiDftBRSbjjAs/a0vjrq/H4p6QBI=",
         "cm_new": "1zuOv92V7e1qX1bP7+QNsV+gW5E3xUsghte/lZ7h5pg=",
         "value": 10,
-        "proof": "SteTxuxdE9nhB7CszCgCrEarKCv4GE8toATEgMmmdgGcp6D5EEo47Jcb9f0R2UKEK7ZCZv9HBBbvwzCVfSYysx91axKSHvW5dD0tj0UkNTh0DbDDa5Tsr5HY46nKSQIUDEM3jZsNTPI8BoEbKLMfGFU+IIpugjim7iIvXF71MIM9x2Ts4oRRZGJ24KaYBvcRgvKUNtSN8OyoYdSBfk9Kp5rb5FtkyWzYQYQLV1zXI6pJkwSVaH0i0ttInnxOYlWN"
+        "proof": "3N+/gTSg2lQyZnYfRwX2j9b0SKofxCIDH8Yn5cRrXx5PLObJOC60NgnhZFPU7ycDiLSEwJq0YDkihqPWPUCGLSUkxU/ml0JpX5R1ItZC7r2i89qfQodojGNRH68QXMsDsuBzIBksv9y+GxKcoKfuixpWJDmJ9HdNSFGgM+GXBhfrkeBlPB1eSAKafkcp0H4BjK8s01tILn7437i9gRE9lFvsUJQL+w6FnIwonR8EDHl+vSg7qN74AculD63eecuZ",
+        "sender_pk": "YNwLbvb27Rb0aKptzSNEvBToYvW9IlbjVvROHfD2NAQ=",
+        "receiver_pk": "Xojt5RMhuwp+4y0UXQeroXGPb5A6v8PfWTWUpJWezho=",
+        "receiver_sk": "uPo5YiD6wGRiHbIXH6WmHuwjYS+mNSkCspDngkHHJ2c=",
+        "ciphertext": "UkNssYxe5HUjSzlz5JE1pQ=="
     }
 }
