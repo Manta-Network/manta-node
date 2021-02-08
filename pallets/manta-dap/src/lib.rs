@@ -90,6 +90,7 @@ extern crate ark_r1cs_std;
 extern crate ark_relations;
 extern crate ark_serialize;
 extern crate ark_std;
+extern crate generic_array;
 extern crate rand_chacha;
 extern crate x25519_dalek;
 

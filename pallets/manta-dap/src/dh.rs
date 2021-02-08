@@ -1,14 +1,14 @@
 //! This file implements Diffie-Hellman Key Agreement for value encryption
 //! TODO: maybe we should simply use ecies crate
 //! https://github.com/phayes/ecies-ed25519/
-use aes::cipher::generic_array::GenericArray;
 use aes::cipher::{BlockCipher, NewBlockCipher};
 use aes::Aes256;
+use generic_array::GenericArray;
 use hkdf::Hkdf;
 use rand_core::CryptoRng;
 use rand_core::RngCore;
 use sha2::Sha512Trunc256;
-use x25519_dalek::{EphemeralSecret, PublicKey};
+use x25519_dalek::{EphemeralSecret, PublicKey, StaticSecret};
 /// encrypt the value under receiver's public key
 /// steps:
 ///     1. sample a random, ephermal field element: sender_x
@@ -21,7 +21,7 @@ pub fn manta_dh_enc<R: RngCore + CryptoRng>(
     receiver_pk_bytes: [u8; 32],
     value: u64,
     rng: &mut R,
-) -> ([u8; 32], [u8; 64]) {
+) -> ([u8; 32], [u8; 16]) {
     let sender_sk = EphemeralSecret::new(rng);
     let sender_pk = PublicKey::from(&sender_sk);
 
@@ -30,10 +30,13 @@ pub fn manta_dh_enc<R: RngCore + CryptoRng>(
     let ss = manta_kdf(&shared_secret.to_bytes());
     let aes_key = GenericArray::from_slice(&ss);
 
-    let mut block = GenericArray::clone_from_slice(&value.to_le_bytes());
+    let msg = [value.to_le_bytes().as_ref(), [0u8; 8].as_ref()].concat();
+    assert_eq!(msg.len(), 16);
+    let mut block = GenericArray::clone_from_slice(&msg);
     let cipher = Aes256::new(&aes_key);
     cipher.encrypt_block(&mut block);
-    let mut res = [0u8;64];
+
+    let mut res = [0u8; 16];
     res.copy_from_slice(block.as_slice());
 
     (sender_pk.to_bytes(), res)
@@ -46,4 +49,43 @@ fn manta_kdf(input: &[u8]) -> [u8; 32] {
     let mut res = [0u8; 32];
     res.copy_from_slice(&output.0[0..32]);
     res
+}
+
+pub fn manta_dh_dec(
+    cipher: &[u8; 16],
+    sender_pk_bytes: [u8; 32],
+    receiver_sk_bytes: [u8; 32],
+) -> u64 {
+    let receiver_sk = StaticSecret::from(receiver_sk_bytes);
+    let sender_pk = PublicKey::from(sender_pk_bytes);
+    let shared_secret = receiver_sk.diffie_hellman(&sender_pk);
+    let ss = manta_kdf(&shared_secret.to_bytes());
+    let aes_key = GenericArray::from_slice(&ss);
+    let mut block = cipher.clone();
+    let mut block = GenericArray::from_mut_slice(&mut block);
+    let cipher = Aes256::new(&aes_key);
+    cipher.decrypt_block(&mut block);
+
+    (block[0] as u64)
+        + ((block[1] as u64) << 8)
+        + ((block[2] as u64) << 16)
+        + ((block[3] as u64) << 24)
+        + ((block[4] as u64) << 32)
+        + ((block[5] as u64) << 40)
+        + ((block[6] as u64) << 48)
+        + ((block[7] as u64) << 56)
+}
+
+#[test]
+fn manta_dh() {
+    let mut rng = rand::thread_rng();
+    let receiver_sk = StaticSecret::new(rng);
+    let receiver_pk = PublicKey::from(&receiver_sk);
+    let receiver_pk_bytes = receiver_pk.to_bytes();
+    let receiver_sk_bytes = receiver_sk.to_bytes();
+    let value = 12345678;
+    let (sender_pk_bytes, cipher) = manta_dh_enc(receiver_pk_bytes, value, &mut rng);
+    println!("enc success");
+    let rec_value = manta_dh_dec(&cipher, sender_pk_bytes, receiver_sk_bytes);
+    assert_eq!(value, rec_value);
 }
