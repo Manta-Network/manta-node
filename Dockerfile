@@ -11,7 +11,7 @@ RUN apt update
 RUN apt install -y cmake pkg-config libssl-dev git build-essential clang libclang-dev curl libz-dev
 
 # copy the source code
-RUN git clone https://github.com/Manta-Network/W3F-Milestone1-Demo.git
+RUN git clone --depth 1 https://github.com/Manta-Network/manta-node
 
 # setup rust runtime
 RUN rustup toolchain install nightly-2020-10-05
@@ -19,20 +19,9 @@ RUN rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-05
 RUN rustup default nightly-2020-10-05
 
 # set workdir
-WORKDIR /W3F-Milestone1-Demo
+WORKDIR /manta-node
 
-# # unzip sources
-RUN tar -xf manta-node-0.1.0.tar.gz
-RUN tar -xf manta-front-end-0.1.0.tar.gz
 
 # install backend 
-WORKDIR /W3F-Milestone1-Demo/manta-node-0.1.0
 RUN cargo +nightly-2020-10-05 build --release
-# backend test (slow)
-# RUN cargo test --release
-
-
-# install frontend
-WORKDIR /W3F-Milestone1-Demo/ manta-front-end-0.1.0
-RUN yarn install
-
+CMD ["./target/release/node-template", "--dev", "--tmp", "--ws-external"]

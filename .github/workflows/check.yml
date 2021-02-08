@@ -35,3 +35,7 @@ jobs:
         run: |
           make init
           make check
+          make build
+
+      - name: Check test
+          make test    
