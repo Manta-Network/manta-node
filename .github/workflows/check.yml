@@ -29,7 +29,7 @@ jobs:
         run: |
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           source ~/.cargo/env
-          rustup default stable
+          rustup default nightly
 
       - name: Check Build
         run: |
@@ -38,4 +38,5 @@ jobs:
           make build
 
       - name: Check test
+        run: |
           make test    
