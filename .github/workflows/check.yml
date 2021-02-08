@@ -38,4 +38,5 @@ jobs:
           make build
 
       - name: Check test
+        run: |
           make test    
