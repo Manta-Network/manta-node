@@ -36,7 +36,7 @@ frame-system-benchmarking = { default-features = false, optional = true, version
 frame-system-rpc-runtime-api = { default-features = false, version = '2.0.1' }
 pallet-aura = { default-features = false, version = '2.0.1' }
 pallet-assets = { default-features = false, version = '2.0.1' }
-pallet-manta-dap = { path = "../pallets/manta-dap", default-features = false }
+pallet-manta-dap = { path = "../../pallet-manta-dap", default-features = false }
 pallet-balances = { default-features = false, version = '2.0.1' }
 pallet-grandpa = { default-features = false, version = '2.0.1' }
 pallet-randomness-collective-flip = { default-features = false, version = '2.0.1' }
@@ -97,4 +97,5 @@ std = [
     'sp-std/std',
     'sp-transaction-pool/std',
     'sp-version/std',
+    'pallet-manta-dap/std',
 ]
