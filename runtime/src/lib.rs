@@ -40,8 +40,8 @@ pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the template pallet.
-pub use pallet_template;
+// /// Import the template pallet.
+// pub use pallet_template;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -273,10 +273,10 @@ impl pallet_manta_dap::Trait for Runtime {
     type Event = Event;
 }
 
-/// Configure the template pallet in pallets/template.
-impl pallet_template::Trait for Runtime {
-    type Event = Event;
-}
+// /// Configure the template pallet in pallets/template.
+// impl pallet_template::Trait for Runtime {
+//     type Event = Event;
+// }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -296,7 +296,7 @@ construct_runtime!(
         // Include the custom logic from the template pallet in the runtime.
         Assets: pallet_assets::{Module, Call, Storage, Event<T>},
         MantaDAP: pallet_manta_dap::{Module, Call, Storage, Event<T>},
-        TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
+        // TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -469,6 +469,7 @@ impl_runtime_apis! {
 
             use frame_system_benchmarking::Module as SystemBench;
             impl frame_system_benchmarking::Trait for Runtime {}
+            
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -494,6 +495,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
             add_benchmark!(params, batches, pallet_balances, Balances);
             add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+            add_benchmark!(params, batches, pallet_manta_dap, MantaDAP);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
