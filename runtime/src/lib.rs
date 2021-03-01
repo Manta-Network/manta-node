@@ -469,7 +469,7 @@ impl_runtime_apis! {
 
             use frame_system_benchmarking::Module as SystemBench;
             impl frame_system_benchmarking::Trait for Runtime {}
-            
+
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
