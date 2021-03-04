@@ -4166,6 +4166,7 @@ dependencies = [
 [[package]]
 name = "pallet-manta-dap"
 version = "2.0.1"
+source = "git+https://github.com/Manta-Network/pallet-manta-dap#1ebcccceba64772bb0897f07361534281a27c831"
 dependencies = [
  "aes 0.6.0",
  "ark-bls12-381",
