@@ -12,7 +12,7 @@ test:
 
 .PHONY: run
 run:
-	cargo run --release -p node-template -- --dev --tmp
+	cargo run --release -p manta-node -- --dev --tmp
 
 .PHONY: build
 build:

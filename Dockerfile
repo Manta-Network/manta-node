@@ -24,4 +24,4 @@ WORKDIR /manta-node
 
 # install backend 
 RUN cargo +nightly-2020-10-05 build --release
-CMD ["./target/release/node-template", "--dev", "--tmp", "--ws-external"]
+CMD ["./target/release/manta-node", "--dev", "--tmp", "--ws-external"]
