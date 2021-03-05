@@ -24,7 +24,7 @@ structopt = '0.3.8'
 
 # local dependencies
 manta-runtime = { path = '../runtime', version = '2.0.1' }
-pallet-manta-dap = { path = '../../pallet-manta-dap', version = '2.0.1' }
+pallet-manta-dap = { git = "https://github.com/Manta-Network/pallet-manta-dap", branch = "w3f-deliverable-mods", default-features = false }
 
 # Substrate dependencies
 frame-benchmarking = '2.0.1'

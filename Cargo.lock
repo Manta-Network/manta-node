@@ -4166,7 +4166,7 @@ dependencies = [
 [[package]]
 name = "pallet-manta-dap"
 version = "2.0.1"
-source = "git+https://github.com/Manta-Network/pallet-manta-dap#1ebcccceba64772bb0897f07361534281a27c831"
+source = "git+https://github.com/Manta-Network/pallet-manta-dap?branch=w3f-deliverable-mods#2acea380a6b95b1851b0a268d4aaba8926b8a77c"
 dependencies = [
  "aes 0.6.0",
  "ark-bls12-381",
@@ -4179,6 +4179,7 @@ dependencies = [
  "ark-relations",
  "ark-serialize",
  "ark-std",
+ "blake2 0.9.1",
  "data-encoding",
  "frame-benchmarking",
  "frame-support",
