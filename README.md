@@ -17,7 +17,7 @@ You will need to use [manta front end](https://github.com/Manta-Network/manta-fr
 
 ### Setup
 1. run a Manta node locally
-2. run a `manta-front-end` locally:
+2. run a `manta-front-end` locally (require `node.js` with version > 12.0):
    ```sh
    git clone https://github.com/Manta-Network/manta-front-end.git
    cd manta-front-end
