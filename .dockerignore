@@ -1,0 +1,5 @@
+target/
+.devcontainer/
+.github/
+.vscode/
+*.md
