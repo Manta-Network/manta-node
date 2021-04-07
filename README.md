@@ -6,6 +6,22 @@ See [pallet-manta-dap/readme](https://github.com/Manta-Network/pallet-manta-dap/
 
 ## Howto Run Manta Node
 
+### Prerequisites
+
+#### Fedora
+
+``` sh
+sudo dnf install clang-devel llvm-devel
+```
+
+#### Ubuntu
+
+``` sh
+sudo apt-get install libclang-dev llvm-dev
+```
+
+### Build and run
+
 ``` sh
 make init
 make run
